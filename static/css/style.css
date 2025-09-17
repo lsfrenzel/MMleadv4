@@ -1,0 +1,239 @@
+/* Estilos gerais */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f8f9fa;
+    line-height: 1.6;
+}
+
+/* Cards personalizados */
+.card {
+    border-radius: 0.5rem;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Navbar */
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+
+.nav-link {
+    border-radius: 0.375rem;
+    margin: 0 0.25rem;
+    transition: all 0.2s ease-in-out;
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Botões */
+.btn {
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.75rem;
+}
+
+/* Badges */
+.badge {
+    font-size: 0.75em;
+    font-weight: 500;
+}
+
+/* Tabelas */
+.table {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.table th {
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Formulários */
+.form-control {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    transition: all 0.2s ease-in-out;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Modais */
+.modal-content {
+    border-radius: 0.5rem;
+}
+
+.modal-header {
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Alerts */
+.alert {
+    border-radius: 0.5rem;
+    border: none;
+}
+
+/* Gráficos */
+canvas {
+    max-height: 400px !important;
+}
+
+/* Login específico */
+.min-vh-100 {
+    min-height: 100vh;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+}
+
+/* Animações */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Status específicos */
+.status-novo {
+    color: #17a2b8;
+    background-color: rgba(23, 162, 184, 0.1);
+}
+
+.status-em-andamento {
+    color: #ffc107;
+    background-color: rgba(255, 193, 7, 0.1);
+}
+
+.status-fechado {
+    color: #28a745;
+    background-color: rgba(40, 167, 69, 0.1);
+}
+
+.status-perdido {
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* Filtros */
+.filters-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.filters-card .form-control {
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Drag and drop */
+.sortable-item {
+    cursor: grab;
+    transition: all 0.2s ease-in-out;
+}
+
+.sortable-item:active {
+    cursor: grabbing;
+}
+
+.sortable-item.dragging {
+    opacity: 0.5;
+}
+
+/* WebSocket status */
+.toast {
+    position: relative;
+    z-index: 9999;
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* WhatsApp theme colors */
+.bg-whatsapp {
+    background-color: #25d366 !important;
+}
+
+.text-whatsapp {
+    color: #25d366 !important;
+}
+
+.btn-whatsapp {
+    background-color: #25d366;
+    border-color: #25d366;
+    color: white;
+}
+
+.btn-whatsapp:hover {
+    background-color: #128c7e;
+    border-color: #128c7e;
+    color: white;
+}
+
+/* Stats cards */
+.stats-card {
+    border-left: 4px solid #007bff;
+}
+
+.stats-card.success {
+    border-left-color: #28a745;
+}
+
+.stats-card.warning {
+    border-left-color: #ffc107;
+}
+
+.stats-card.info {
+    border-left-color: #17a2b8;
+}
+
+.stats-card.danger {
+    border-left-color: #dc3545;
+}

@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Sistema de Leads{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h3">Dashboard</h1>
+        <p class="text-muted">Visão geral dos seus leads e métricas</p>
+    </div>
+</div>
+
+<!-- Cards de Estatísticas -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-people-fill text-primary fs-1"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5 class="card-title text-muted mb-1">Total de Leads</h5>
+                        <h2 class="mb-0" id="totalLeads">-</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-calendar-day text-success fs-1"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5 class="card-title text-muted mb-1">Leads Hoje</h5>
+                        <h2 class="mb-0" id="leadsToday">-</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-graph-up text-warning fs-1"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5 class="card-title text-muted mb-1">Esta Semana</h5>
+                        <h2 class="mb-0" id="leadsThisWeek">-</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-trophy text-info fs-1"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5 class="card-title text-muted mb-1">Taxa Conversão</h5>
+                        <h2 class="mb-0" id="conversionRate">-%</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Leads por Status</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4" id="brokersCard" style="display: none;">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Leads por Corretor</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="brokersChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leads Recentes -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Leads Recentes</h5>
+                <a href="/leads" class="btn btn-sm btn-outline-primary">
+                    Ver todos <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Telefone</th>
+                                <th>Status</th>
+                                <th>Corretor</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentLeads">
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">
+                                    <div class="spinner-border spinner-border-sm me-2"></div>
+                                    Carregando leads...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- WebSocket Status -->
+<div class="position-fixed bottom-0 end-0 p-3">
+    <div class="toast" id="connectionToast" role="alert">
+        <div class="toast-header">
+            <i class="bi bi-wifi text-success me-2"></i>
+            <strong class="me-auto">Conexão</strong>
+        </div>
+        <div class="toast-body">
+            Conectado ao sistema de notificações
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let ws = null;
+
+// Conectar WebSocket
+function connectWebSocket() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!user.id) return;
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/${user.id}`;
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = function() {
+        console.log('WebSocket conectado');
+        const toast = new bootstrap.Toast(document.getElementById('connectionToast'));
+        toast.show();
+    };
+    
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.type === 'new_lead') {
+            // Notificar sobre novo lead
+            showNotification('Novo Lead', `${data.lead.contact_name} - ${data.lead.phone}`);
+            // Atualizar dashboard
+            loadDashboardData();
+            loadRecentLeads();
+        }
+    };
+    
+    ws.onclose = function() {
+        console.log('WebSocket desconectado, tentando reconectar...');
+        setTimeout(connectWebSocket, 5000);
+    };
+    
+    // Heartbeat
+    setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send('ping');
+        }
+    }, 30000);
+}
+
+// Mostrar notificação
+function showNotification(title, message) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, {
+            body: message,
+            icon: '/static/favicon.ico'
+        });
+    }
+}
+
+// Carregar dados do dashboard
+async function loadDashboardData() {
+    try {
+        const response = await fetchWithAuth('/api/dashboard/stats');
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Atualizar cards
+            document.getElementById('totalLeads').textContent = data.total_leads;
+            document.getElementById('leadsToday').textContent = data.leads_today;
+            document.getElementById('leadsThisWeek').textContent = data.leads_this_week;
+            document.getElementById('conversionRate').textContent = `${data.conversion_rate.toFixed(1)}%`;
+            
+            // Atualizar gráficos
+            updateStatusChart(data.leads_by_status);
+            
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            if (user.is_admin && Object.keys(data.leads_by_broker).length > 0) {
+                document.getElementById('brokersCard').style.display = 'block';
+                updateBrokersChart(data.leads_by_broker);
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao carregar dados do dashboard:', error);
+    }
+}
+
+// Atualizar gráfico de status
+function updateStatusChart(data) {
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    
+    const colors = {
+        'novo': '#17a2b8',
+        'em_andamento': '#ffc107',
+        'fechado': '#28a745',
+        'perdido': '#dc3545'
+    };
+    
+    const labels = Object.keys(data).map(status => {
+        const statusMap = {
+            'novo': 'Novo',
+            'em_andamento': 'Em Andamento',
+            'fechado': 'Fechado',
+            'perdido': 'Perdido'
+        };
+        return statusMap[status] || status;
+    });
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: Object.values(data),
+                backgroundColor: Object.keys(data).map(status => colors[status] || '#6c757d'),
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+// Atualizar gráfico de corretores
+function updateBrokersChart(data) {
+    const ctx = document.getElementById('brokersChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(data),
+            datasets: [{
+                label: 'Leads',
+                data: Object.values(data),
+                backgroundColor: '#007bff',
+                borderColor: '#0056b3',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+// Carregar leads recentes
+async function loadRecentLeads() {
+    try {
+        const response = await fetchWithAuth('/api/leads?limit=5');
+        const leads = await response.json();
+        
+        if (response.ok) {
+            const tbody = document.getElementById('recentLeads');
+            tbody.innerHTML = '';
+            
+            if (leads.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhum lead encontrado</td></tr>';
+                return;
+            }
+            
+            leads.forEach(lead => {
+                const row = document.createElement('tr');
+                
+                const statusBadge = {
+                    'novo': 'bg-info',
+                    'em_andamento': 'bg-warning',
+                    'fechado': 'bg-success',
+                    'perdido': 'bg-danger'
+                }[lead.status] || 'bg-secondary';
+                
+                const statusText = {
+                    'novo': 'Novo',
+                    'em_andamento': 'Em Andamento',
+                    'fechado': 'Fechado',
+                    'perdido': 'Perdido'
+                }[lead.status] || lead.status;
+                
+                row.innerHTML = `
+                    <td>${lead.contact_name}</td>
+                    <td>${lead.phone}</td>
+                    <td><span class="badge ${statusBadge}">${statusText}</span></td>
+                    <td>${lead.assigned_broker ? lead.assigned_broker.name : 'Não atribuído'}</td>
+                    <td>${new Date(lead.created_at).toLocaleDateString('pt-BR')}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar leads recentes:', error);
+        document.getElementById('recentLeads').innerHTML = 
+            '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar leads</td></tr>';
+    }
+}
+
+// Solicitar permissão para notificações
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+}
+
+// Inicializar dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+    loadRecentLeads();
+    connectWebSocket();
+});
+</script>
+{% endblock %}
