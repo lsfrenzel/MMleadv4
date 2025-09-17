@@ -1,0 +1,65 @@
+Desenvolva um sistema web completo, com design moderno, responsivo e intuitivo, focado em gestão de leads capturados via WhatsApp Business.
+
+🔑 Autenticação e perfis de usuário
+
+Login seguro com senha criptografada.
+
+Perfis: Administrador e Corretores.
+
+O Administrador controla cadastros, permissões e define a ordem de distribuição dos leads.
+
+Os Corretores só têm acesso aos leads que foram atribuídos a eles.
+
+📲 Integração com WhatsApp Business
+
+Conectar o sistema ao WhatsApp Business para que cada nova mensagem recebida vire automaticamente um lead no sistema.
+
+Captura de: nome do contato, número, mensagem inicial, data e hora.
+
+📊 Gestão e distribuição de leads
+
+Todos os leads entram em uma fila central.
+
+O administrador define a ordem dos corretores por meio de drag and drop (arrastar e soltar).
+
+A distribuição dos leads acontece automaticamente na ordem configurada.
+
+O administrador pode adicionar, remover ou reordenar corretores a qualquer momento.
+
+Histórico de distribuição: mostrar qual corretor recebeu qual lead e quando.
+
+⚡ Como o sistema vai funcionar no geral
+
+O cliente envia mensagem para o WhatsApp Business.
+
+O sistema recebe automaticamente essa mensagem e cria um lead no banco de dados.
+
+O lead é exibido no painel do administrador, entrando na fila.
+
+O sistema distribui o lead para o próximo corretor da fila, seguindo a ordem definida pelo admin.
+
+O corretor recebe uma notificação em tempo real (no sistema e/ou via e-mail/WhatsApp).
+
+O corretor acessa seu painel, onde vê apenas os leads atribuídos a ele.
+
+O administrador acompanha métricas no dashboard: leads recebidos, atribuídos, status de negociação, desempenho de cada corretor.
+
+É possível gerar relatórios (PDF/Excel) para análise.
+
+🚀 Funcionalidades adicionais para deixar o sistema robusto
+
+Dashboard visual com gráficos e estatísticas.
+
+Filtros avançados de leads (por corretor, status, data, origem).
+
+Configuração personalizada dos status dos leads (Novo, Em andamento, Fechado, Perdido).
+
+Notificações em tempo real (Socket ou Firebase).
+
+Exportação de relatórios (PDF/Excel).
+
+Painel de configurações avançadas (horários de distribuição, limites de leads por corretor, etc.).
+
+Design clean, minimalista e profissional com experiência fluida em web e mobile.
+
+Banco de dados otimizado e escalável para grande volume de leads.
