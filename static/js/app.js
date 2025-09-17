@@ -72,9 +72,11 @@ function requireAuth() {
         userNameElement.textContent = user.name || 'Usuário';
     }
     
-    // Mostrar menu de corretores apenas para admin
-    if (brokersMenu && user.is_admin) {
-        brokersMenu.style.display = 'block';
+    // Mostrar menus apenas para admin
+    if (user.is_admin) {
+        if (brokersMenu) brokersMenu.style.display = 'block';
+        const settingsMenu = document.getElementById('settingsMenu');
+        if (settingsMenu) settingsMenu.style.display = 'block';
     }
     
     return true;

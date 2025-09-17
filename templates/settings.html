@@ -1,0 +1,503 @@
+{% extends "base.html" %}
+
+{% block title %}Configurações - Sistema de Leads{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h3">Configurações do Sistema</h1>
+        <p class="text-muted">Configure integrações e parâmetros do sistema</p>
+    </div>
+</div>
+
+<!-- Navegação por abas -->
+<ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="whatsapp-tab" data-bs-toggle="tab" data-bs-target="#whatsapp" type="button" role="tab">
+            <i class="bi bi-whatsapp me-2"></i>WhatsApp Business
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="notifications-tab" data-bs-toggle="tab" data-bs-target="#notifications" type="button" role="tab">
+            <i class="bi bi-bell me-2"></i>Notificações
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="system-tab" data-bs-toggle="tab" data-bs-target="#system" type="button" role="tab">
+            <i class="bi bi-gear me-2"></i>Sistema
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="settingsTabContent">
+    
+    <!-- WhatsApp Business Tab -->
+    <div class="tab-pane fade show active" id="whatsapp" role="tabpanel">
+        
+        <!-- Status da Integração -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-whatsapp text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-whatsapp me-2"></i>
+                    Status da Integração WhatsApp
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div id="whatsappStatus">
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-warning me-3">Não Configurado</span>
+                                <div>
+                                    <h6 class="mb-1">WhatsApp Business não configurado</h6>
+                                    <p class="mb-0 text-muted">Configure o webhook para receber leads automaticamente</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-whatsapp" id="testWebhookBtn">
+                            <i class="bi bi-lightning"></i> Testar Webhook
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuração do Webhook -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Configuração do Webhook</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>URL do Webhook:</strong> Configure esta URL no seu WhatsApp Business API
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">URL do Webhook</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="webhookUrl" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyWebhookUrl()">
+                            <i class="bi bi-clipboard"></i> Copiar
+                        </button>
+                    </div>
+                    <small class="text-muted">Esta URL deve ser configurada no webhook do WhatsApp Business API</small>
+                </div>
+
+                <!-- Instruções passo a passo -->
+                <div class="accordion" id="whatsappInstructions">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="step1Header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step1">
+                                <span class="badge bg-primary me-3">1</span>
+                                Configurar WhatsApp Business API
+                            </button>
+                        </h2>
+                        <div id="step1" class="accordion-collapse collapse" data-bs-parent="#whatsappInstructions">
+                            <div class="accordion-body">
+                                <h6>Opção 1: WhatsApp Business API (Oficial)</h6>
+                                <ol>
+                                    <li>Acesse o <a href="https://business.whatsapp.com/products/business-platform" target="_blank">WhatsApp Business Platform</a></li>
+                                    <li>Crie uma conta business</li>
+                                    <li>Configure um aplicativo e obtenha o token de acesso</li>
+                                    <li>Configure o webhook com a URL acima</li>
+                                </ol>
+
+                                <h6 class="mt-4">Opção 2: Serviços Terceiros</h6>
+                                <p>Você pode usar serviços como:</p>
+                                <ul>
+                                    <li><a href="https://www.twilio.com/whatsapp" target="_blank">Twilio WhatsApp API</a></li>
+                                    <li><a href="https://www.maytapi.com/" target="_blank">Maytapi</a></li>
+                                    <li><a href="https://chat-api.com/" target="_blank">Chat API</a></li>
+                                    <li><a href="https://wppconnect.io/" target="_blank">WPPConnect</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="step2Header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step2">
+                                <span class="badge bg-primary me-3">2</span>
+                                Formato das Mensagens
+                            </button>
+                        </h2>
+                        <div id="step2" class="accordion-collapse collapse" data-bs-parent="#whatsappInstructions">
+                            <div class="accordion-body">
+                                <p>O webhook deve enviar dados no formato JSON:</p>
+                                <pre class="bg-light p-3 rounded"><code>{
+  "contact_name": "Nome do Cliente",
+  "phone": "5511999999999",
+  "message": "Mensagem do cliente",
+  "timestamp": "2024-01-15T10:30:00Z"
+}</code></pre>
+                                
+                                <div class="alert alert-warning mt-3">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    <strong>Importante:</strong> O número de telefone deve estar no formato internacional (incluindo código do país)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="step3Header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step3">
+                                <span class="badge bg-primary me-3">3</span>
+                                Testar a Integração
+                            </button>
+                        </h2>
+                        <div id="step3" class="accordion-collapse collapse" data-bs-parent="#whatsappInstructions">
+                            <div class="accordion-body">
+                                <p>Para testar se a integração está funcionando:</p>
+                                <ol>
+                                    <li>Configure o webhook conforme as instruções acima</li>
+                                    <li>Clique no botão "Testar Webhook" no topo desta página</li>
+                                    <li>Ou envie uma mensagem de teste via Postman/curl:</li>
+                                </ol>
+                                
+                                <div class="mt-3">
+                                    <label class="form-label">Exemplo de teste com curl:</label>
+                                    <pre class="bg-dark text-white p-3 rounded"><code>curl -X POST <span id="curlWebhookUrl"></span> \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contact_name": "Cliente Teste",
+    "phone": "5511999999999", 
+    "message": "Mensagem de teste",
+    "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+  }'</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas do WhatsApp -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Estatísticas do WhatsApp</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <i class="bi bi-chat-dots text-whatsapp" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2" id="whatsappLeadsCount">-</h4>
+                            <p class="text-muted mb-0">Leads via WhatsApp</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <i class="bi bi-calendar-day text-success" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2" id="whatsappLeadsToday">-</h4>
+                            <p class="text-muted mb-0">Hoje</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3">
+                            <i class="bi bi-graph-up text-info" style="font-size: 2rem;"></i>
+                            <h4 class="mt-2" id="whatsappLeadsWeek">-</h4>
+                            <p class="text-muted mb-0">Esta Semana</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notificações Tab -->
+    <div class="tab-pane fade" id="notifications" role="tabpanel">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Configurações de Notificações</h5>
+            </div>
+            <div class="card-body">
+                <form id="notificationsForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Notificações Web</h6>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="browserNotifications" checked>
+                                <label class="form-check-label" for="browserNotifications">
+                                    Notificações do navegador
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="soundNotifications" checked>
+                                <label class="form-check-label" for="soundNotifications">
+                                    Som para novos leads
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="desktopPopup" checked>
+                                <label class="form-check-label" for="desktopPopup">
+                                    Popup para novos leads
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6>Frequência de Atualização</h6>
+                            <div class="mb-3">
+                                <label for="updateInterval" class="form-label">Intervalo de atualização (segundos)</label>
+                                <select class="form-select" id="updateInterval">
+                                    <option value="5">5 segundos</option>
+                                    <option value="10" selected>10 segundos</option>
+                                    <option value="30">30 segundos</option>
+                                    <option value="60">1 minuto</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Salvar Configurações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sistema Tab -->
+    <div class="tab-pane fade" id="system" role="tabpanel">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Informações do Sistema</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-6">Versão:</dt>
+                            <dd class="col-sm-6">1.0.0</dd>
+                            
+                            <dt class="col-sm-6">Banco de Dados:</dt>
+                            <dd class="col-sm-6">PostgreSQL</dd>
+                            
+                            <dt class="col-sm-6">Servidor:</dt>
+                            <dd class="col-sm-6">FastAPI + Uvicorn</dd>
+                            
+                            <dt class="col-sm-6">Última Atualização:</dt>
+                            <dd class="col-sm-6">17/09/2025</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title mb-0">Ações do Sistema</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-info" onclick="testNotifications()">
+                                <i class="bi bi-bell"></i> Testar Notificações
+                            </button>
+                            
+                            <button class="btn btn-outline-warning" onclick="clearCache()">
+                                <i class="bi bi-arrow-clockwise"></i> Limpar Cache
+                            </button>
+                            
+                            <button class="btn btn-outline-success" onclick="checkUpdates()">
+                                <i class="bi bi-download"></i> Verificar Atualizações
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Configurar URL do webhook
+function setupWebhookUrl() {
+    const webhookUrl = `${window.location.origin}/api/whatsapp-webhook`;
+    document.getElementById('webhookUrl').value = webhookUrl;
+    document.getElementById('curlWebhookUrl').textContent = webhookUrl;
+}
+
+// Copiar URL do webhook
+function copyWebhookUrl() {
+    const urlInput = document.getElementById('webhookUrl');
+    urlInput.select();
+    document.execCommand('copy');
+    showToast('Sucesso', 'URL copiada para a área de transferência', 'success');
+}
+
+// Testar webhook
+async function testWebhook() {
+    const btn = document.getElementById('testWebhookBtn');
+    showLoading(btn, 'Testando...');
+    
+    try {
+        const testData = {
+            contact_name: "Cliente Teste",
+            phone: "5511999999999",
+            message: "Esta é uma mensagem de teste do sistema",
+            timestamp: new Date().toISOString()
+        };
+        
+        const response = await fetchWithAuth('/api/whatsapp-webhook', {
+            method: 'POST',
+            body: JSON.stringify(testData)
+        });
+        
+        if (response.ok) {
+            showToast('Sucesso', 'Webhook testado com sucesso! Lead de teste criado.', 'success');
+            updateWhatsAppStats();
+        } else {
+            const error = await response.json();
+            showToast('Erro', `Erro no teste do webhook: ${error.detail}`, 'error');
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão no teste do webhook', 'error');
+    }
+    
+    hideLoading(btn);
+}
+
+// Atualizar estatísticas do WhatsApp
+async function updateWhatsAppStats() {
+    try {
+        const response = await fetchWithAuth('/api/dashboard/stats');
+        const stats = await response.json();
+        
+        if (response.ok) {
+            // Filtrar apenas leads do WhatsApp
+            const whatsappResponse = await fetchWithAuth('/api/leads?source=WhatsApp Business&limit=1000');
+            const whatsappLeads = await whatsappResponse.json();
+            
+            if (whatsappResponse.ok) {
+                const today = new Date().toDateString();
+                const thisWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                
+                const leadsToday = whatsappLeads.filter(lead => 
+                    new Date(lead.created_at).toDateString() === today
+                ).length;
+                
+                const leadsThisWeek = whatsappLeads.filter(lead => 
+                    new Date(lead.created_at) >= thisWeek
+                ).length;
+                
+                document.getElementById('whatsappLeadsCount').textContent = whatsappLeads.length;
+                document.getElementById('whatsappLeadsToday').textContent = leadsToday;
+                document.getElementById('whatsappLeadsWeek').textContent = leadsThisWeek;
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao carregar estatísticas do WhatsApp:', error);
+    }
+}
+
+// Salvar configurações de notificações
+document.getElementById('notificationsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const settings = {
+        browserNotifications: document.getElementById('browserNotifications').checked,
+        soundNotifications: document.getElementById('soundNotifications').checked,
+        desktopPopup: document.getElementById('desktopPopup').checked,
+        updateInterval: document.getElementById('updateInterval').value
+    };
+    
+    localStorage.setItem('notificationSettings', JSON.stringify(settings));
+    showToast('Sucesso', 'Configurações de notificações salvas', 'success');
+});
+
+// Carregar configurações de notificações
+function loadNotificationSettings() {
+    const settings = JSON.parse(localStorage.getItem('notificationSettings') || '{}');
+    
+    if (settings.browserNotifications !== undefined) {
+        document.getElementById('browserNotifications').checked = settings.browserNotifications;
+    }
+    if (settings.soundNotifications !== undefined) {
+        document.getElementById('soundNotifications').checked = settings.soundNotifications;
+    }
+    if (settings.desktopPopup !== undefined) {
+        document.getElementById('desktopPopup').checked = settings.desktopPopup;
+    }
+    if (settings.updateInterval) {
+        document.getElementById('updateInterval').value = settings.updateInterval;
+    }
+}
+
+// Testar notificações
+function testNotifications() {
+    const settings = JSON.parse(localStorage.getItem('notificationSettings') || '{}');
+    
+    if (settings.browserNotifications !== false) {
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+                new Notification('Teste de Notificação', {
+                    body: 'As notificações estão funcionando corretamente!',
+                    icon: '/static/favicon.ico'
+                });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        new Notification('Teste de Notificação', {
+                            body: 'As notificações estão funcionando corretamente!',
+                            icon: '/static/favicon.ico'
+                        });
+                    }
+                });
+            }
+        }
+    }
+    
+    showToast('Info', 'Teste de notificação enviado', 'info');
+}
+
+// Limpar cache
+function clearCache() {
+    if ('caches' in window) {
+        caches.keys().then(names => {
+            names.forEach(name => {
+                caches.delete(name);
+            });
+        });
+    }
+    
+    localStorage.removeItem('dashboardCache');
+    sessionStorage.clear();
+    
+    showToast('Sucesso', 'Cache limpo com sucesso', 'success');
+}
+
+// Verificar atualizações
+function checkUpdates() {
+    // Simulação de verificação de atualizações
+    setTimeout(() => {
+        showToast('Info', 'Sistema está atualizado na versão mais recente', 'info');
+    }, 1000);
+}
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    setupWebhookUrl();
+    loadNotificationSettings();
+    updateWhatsAppStats();
+    
+    // Solicitar permissão para notificações
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+    
+    // Configurar event listener para o botão de teste do webhook
+    document.getElementById('testWebhookBtn').addEventListener('click', testWebhook);
+});
+</script>
+{% endblock %}

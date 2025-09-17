@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+
+{% block title %}Relatórios - Sistema de Leads{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h3">Relatórios e Exportações</h1>
+        <p class="text-muted">Gere relatórios detalhados sobre seus leads e performance</p>
+    </div>
+</div>
+
+<!-- Filtros de Relatório -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h5 class="card-title mb-0">
+            <i class="bi bi-funnel me-2"></i>
+            Filtros de Relatório
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="reportStatus" class="form-label">Status</label>
+                <select class="form-select" id="reportStatus">
+                    <option value="">Todos</option>
+                    <option value="novo">Novo</option>
+                    <option value="em_andamento">Em Andamento</option>
+                    <option value="fechado">Fechado</option>
+                    <option value="perdido">Perdido</option>
+                </select>
+            </div>
+            <div class="col-md-3" id="reportBrokerCol" style="display: none;">
+                <label for="reportBroker" class="form-label">Corretor</label>
+                <select class="form-select" id="reportBroker">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="reportDateFrom" class="form-label">Data Inicial</label>
+                <input type="date" class="form-control" id="reportDateFrom">
+            </div>
+            <div class="col-md-3">
+                <label for="reportDateTo" class="form-label">Data Final</label>
+                <input type="date" class="form-control" id="reportDateTo">
+            </div>
+        </div>
+        
+        <div class="row mt-3">
+            <div class="col-12 text-center">
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="exportToExcel()">
+                        <i class="bi bi-file-earmark-spreadsheet"></i>
+                        Exportar Excel
+                    </button>
+                    <button class="btn btn-danger" onclick="exportToPDF()">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        Exportar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cards de Estatísticas -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm stats-card">
+            <div class="card-body text-center">
+                <i class="bi bi-people-fill text-primary" style="font-size: 2.5rem;"></i>
+                <h3 class="mt-2 mb-0" id="totalLeadsReport">-</h3>
+                <p class="text-muted mb-0">Total de Leads</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm stats-card success">
+            <div class="card-body text-center">
+                <i class="bi bi-check-circle-fill text-success" style="font-size: 2.5rem;"></i>
+                <h3 class="mt-2 mb-0" id="closedLeads">-</h3>
+                <p class="text-muted mb-0">Leads Fechados</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm stats-card warning">
+            <div class="card-body text-center">
+                <i class="bi bi-hourglass-split text-warning" style="font-size: 2.5rem;"></i>
+                <h3 class="mt-2 mb-0" id="inProgressLeads">-</h3>
+                <p class="text-muted mb-0">Em Andamento</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm stats-card info">
+            <div class="card-body text-center">
+                <i class="bi bi-percent text-info" style="font-size: 2.5rem;"></i>
+                <h3 class="mt-2 mb-0" id="conversionRateReport">-%</h3>
+                <p class="text-muted mb-0">Taxa de Conversão</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos de Desempenho -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Performance por Status</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="performanceChart" style="max-height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4" id="brokerPerformanceCol" style="display: none;">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">Top Corretores</h5>
+            </div>
+            <div class="card-body">
+                <div id="topBrokers">
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm"></div>
+                        <small class="d-block mt-2">Carregando...</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Histórico de Distribuição -->
+<div class="card border-0 shadow-sm" id="distributionHistoryCard" style="display: none;">
+    <div class="card-header bg-white">
+        <h5 class="card-title mb-0">Histórico de Distribuição</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Lead</th>
+                        <th>Corretor</th>
+                        <th>Data de Distribuição</th>
+                        <th>Método</th>
+                        <th>Status Atual</th>
+                    </tr>
+                </thead>
+                <tbody id="distributionHistoryBody">
+                    <tr>
+                        <td colspan="5" class="text-center py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div>
+                            Carregando histórico...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Leads recentes para preview -->
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white">
+        <h5 class="card-title mb-0">Preview dos Dados</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Telefone</th>
+                        <th>Status</th>
+                        <th>Corretor</th>
+                        <th>Data</th>
+                    </tr>
+                </thead>
+                <tbody id="previewTableBody">
+                    <tr>
+                        <td colspan="5" class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm me-2"></div>
+                            Carregando preview...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="text-center mt-3">
+            <small class="text-muted">Mostrando apenas os primeiros 10 resultados</small>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentFilters = {};
+
+// Configurar interface baseada no papel do usuário
+function setupUserInterface() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    
+    if (user.is_admin) {
+        document.getElementById('reportBrokerCol').style.display = 'block';
+        document.getElementById('brokerPerformanceCol').style.display = 'block';
+        document.getElementById('distributionHistoryCard').style.display = 'block';
+        
+        loadBrokers();
+        loadDistributionHistory();
+    }
+}
+
+// Carregar corretores para o filtro
+async function loadBrokers() {
+    try {
+        const response = await fetchWithAuth('/api/brokers');
+        const brokers = await response.json();
+        
+        if (response.ok) {
+            const select = document.getElementById('reportBroker');
+            brokers.forEach(broker => {
+                const option = new Option(broker.user.name, broker.user.id);
+                select.add(option);
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar corretores:', error);
+    }
+}
+
+// Carregar estatísticas
+async function loadStats() {
+    try {
+        const params = new URLSearchParams(currentFilters);
+        const response = await fetchWithAuth(`/api/dashboard/stats?${params}`);
+        const stats = await response.json();
+        
+        if (response.ok) {
+            document.getElementById('totalLeadsReport').textContent = stats.total_leads;
+            document.getElementById('closedLeads').textContent = stats.leads_by_status.fechado || 0;
+            document.getElementById('inProgressLeads').textContent = stats.leads_by_status.em_andamento || 0;
+            document.getElementById('conversionRateReport').textContent = `${stats.conversion_rate.toFixed(1)}%`;
+            
+            updatePerformanceChart(stats.leads_by_status);
+            updateTopBrokers(stats.leads_by_broker);
+        }
+    } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+    }
+}
+
+// Atualizar gráfico de performance
+function updatePerformanceChart(statusData) {
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    
+    const colors = {
+        'novo': '#17a2b8',
+        'em_andamento': '#ffc107',
+        'fechado': '#28a745',
+        'perdido': '#dc3545'
+    };
+    
+    const labels = Object.keys(statusData).map(status => {
+        const statusMap = {
+            'novo': 'Novo',
+            'em_andamento': 'Em Andamento',
+            'fechado': 'Fechado',
+            'perdido': 'Perdido'
+        };
+        return statusMap[status] || status;
+    });
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Quantidade de Leads',
+                data: Object.values(statusData),
+                backgroundColor: Object.keys(statusData).map(status => colors[status] || '#6c757d'),
+                borderColor: Object.keys(statusData).map(status => colors[status] || '#6c757d'),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Atualizar top corretores
+function updateTopBrokers(brokersData) {
+    const container = document.getElementById('topBrokers');
+    
+    if (Object.keys(brokersData).length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">Nenhum dado disponível</p>';
+        return;
+    }
+    
+    const sorted = Object.entries(brokersData)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 5);
+    
+    container.innerHTML = sorted.map(([name, count], index) => `
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <span class="badge bg-primary me-2">${index + 1}º</span>
+                ${name}
+            </div>
+            <span class="badge bg-light text-dark">${count}</span>
+        </div>
+    `).join('');
+}
+
+// Carregar preview dos dados
+async function loadPreview() {
+    try {
+        const params = new URLSearchParams({
+            limit: 10,
+            ...currentFilters
+        });
+        
+        const response = await fetchWithAuth(`/api/leads?${params}`);
+        const leads = await response.json();
+        
+        if (response.ok) {
+            const tbody = document.getElementById('previewTableBody');
+            
+            if (leads.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">Nenhum lead encontrado com os filtros aplicados</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = leads.map(lead => `
+                <tr>
+                    <td>${lead.contact_name}</td>
+                    <td>${formatPhone(lead.phone)}</td>
+                    <td>${getStatusBadge(lead.status)}</td>
+                    <td>${lead.assigned_broker ? lead.assigned_broker.name : '<span class="text-muted">Não atribuído</span>'}</td>
+                    <td>${formatDate(lead.created_at)}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Erro ao carregar preview:', error);
+        document.getElementById('previewTableBody').innerHTML = 
+            '<tr><td colspan="5" class="text-center py-3 text-danger">Erro ao carregar dados</td></tr>';
+    }
+}
+
+// Carregar histórico de distribuição
+async function loadDistributionHistory() {
+    try {
+        const response = await fetchWithAuth('/api/leads/distribution-history?limit=20');
+        const history = await response.json();
+        
+        if (response.ok) {
+            const tbody = document.getElementById('distributionHistoryBody');
+            
+            if (history.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted">Nenhum histórico encontrado</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = history.map(record => `
+                <tr>
+                    <td>
+                        <div>
+                            <strong>${record.lead.contact_name}</strong>
+                            <br><small class="text-muted">${record.lead.phone}</small>
+                        </div>
+                    </td>
+                    <td>${record.broker.name}</td>
+                    <td>${formatDate(record.distributed_at)}</td>
+                    <td>
+                        <span class="badge ${record.distribution_method === 'automatic' ? 'bg-success' : 'bg-primary'}">
+                            ${record.distribution_method === 'automatic' ? 'Automático' : 'Manual'}
+                        </span>
+                    </td>
+                    <td>${getStatusBadge(record.lead.status)}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Erro ao carregar histórico:', error);
+    }
+}
+
+// Aplicar filtros
+function applyFilters() {
+    const filters = {};
+    
+    const status = document.getElementById('reportStatus').value;
+    if (status) filters.status = status;
+    
+    const broker = document.getElementById('reportBroker').value;
+    if (broker) filters.broker_id = broker;
+    
+    const dateFrom = document.getElementById('reportDateFrom').value;
+    if (dateFrom) filters.date_from = dateFrom;
+    
+    const dateTo = document.getElementById('reportDateTo').value;
+    if (dateTo) filters.date_to = dateTo;
+    
+    currentFilters = filters;
+    
+    // Recarregar dados
+    loadStats();
+    loadPreview();
+}
+
+// Exportar para Excel
+async function exportToExcel() {
+    try {
+        const params = new URLSearchParams(currentFilters);
+        
+        showToast('Info', 'Iniciando exportação...', 'info');
+        
+        const response = await fetchWithAuth(`/api/export/leads/excel?${params}`);
+        
+        if (response.ok) {
+            // Download do arquivo
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `leads_report_${new Date().toISOString().slice(0,10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showToast('Sucesso', 'Relatório Excel baixado com sucesso', 'success');
+        } else {
+            showToast('Erro', 'Erro ao gerar relatório Excel', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao exportar Excel:', error);
+        showToast('Erro', 'Erro de conexão na exportação', 'error');
+    }
+}
+
+// Exportar para PDF
+async function exportToPDF() {
+    try {
+        const params = new URLSearchParams(currentFilters);
+        
+        showToast('Info', 'Iniciando exportação...', 'info');
+        
+        const response = await fetchWithAuth(`/api/export/leads/pdf?${params}`);
+        
+        if (response.ok) {
+            // Download do arquivo
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `leads_report_${new Date().toISOString().slice(0,10)}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showToast('Sucesso', 'Relatório PDF baixado com sucesso', 'success');
+        } else {
+            showToast('Erro', 'Erro ao gerar relatório PDF', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao exportar PDF:', error);
+        showToast('Erro', 'Erro de conexão na exportação', 'error');
+    }
+}
+
+// Event listeners para filtros
+document.getElementById('reportStatus').addEventListener('change', applyFilters);
+document.getElementById('reportBroker').addEventListener('change', applyFilters);
+document.getElementById('reportDateFrom').addEventListener('change', applyFilters);
+document.getElementById('reportDateTo').addEventListener('change', applyFilters);
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    setupUserInterface();
+    loadStats();
+    loadPreview();
+});
+</script>
+{% endblock %}

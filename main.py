@@ -36,12 +36,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configuração CORS
+# Configuração CORS - mais restritiva
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5000", "https://*.replit.app", "https://*.repl.co"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -107,6 +107,10 @@ async def brokers_page(request: Request):
 @app.get("/reports", response_class=HTMLResponse)
 async def reports_page(request: Request):
     return templates.TemplateResponse("reports.html", {"request": request})
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    return templates.TemplateResponse("settings.html", {"request": request})
 
 # Rotas de autenticação
 @app.post("/api/register", response_model=UserResponse)
@@ -254,42 +258,113 @@ async def delete_broker_endpoint(
         raise HTTPException(status_code=404, detail="Corretor não encontrado")
     return {"message": "Corretor removido com sucesso"}
 
-# Webhook do WhatsApp Business
+# Webhook do WhatsApp Business - Verificação (GET)
+@app.get("/api/whatsapp-webhook")
+async def whatsapp_webhook_verify(request: Request):
+    """Verificar webhook do WhatsApp Business - usado pelo Meta para verificar o endpoint"""
+    
+    # Parâmetros de verificação do Meta
+    mode = request.query_params.get("hub.mode")
+    token = request.query_params.get("hub.verify_token")
+    challenge = request.query_params.get("hub.challenge")
+    
+    # Token de verificação (deve ser configurado nas configurações)
+    VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "meu-token-secreto-12345")
+    
+    if mode and token and challenge:
+        if mode == "subscribe" and token == VERIFY_TOKEN:
+            return int(challenge)
+        else:
+            raise HTTPException(status_code=403, detail="Token de verificação inválido")
+    
+    raise HTTPException(status_code=400, detail="Parâmetros de verificação ausentes")
+
+# Webhook do WhatsApp Business - Recebimento de mensagens (POST)
 @app.post("/api/whatsapp-webhook")
-async def whatsapp_webhook(webhook_data: WhatsAppWebhook, db: Session = Depends(get_db)):
+async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
     """Recebe mensagens do WhatsApp Business e cria leads automaticamente"""
     try:
-        # Criar lead baseado na mensagem recebida
-        lead_data = LeadCreate(
-            contact_name=webhook_data.contact_name,
-            phone=webhook_data.phone,
-            initial_message=webhook_data.message,
-            source="WhatsApp Business"
-        )
+        # Obter dados do corpo da requisição
+        body = await request.json()
         
-        new_lead = create_lead(db, lead_data)
+        # Processar formato do WhatsApp Business API
+        if "entry" in body:
+            # Formato padrão do Meta WhatsApp API
+            for entry in body.get("entry", []):
+                for change in entry.get("changes", []):
+                    if change.get("field") == "messages":
+                        value = change.get("value", {})
+                        
+                        # Extrair mensagens
+                        for message in value.get("messages", []):
+                            # Obter informações do contato
+                            contact = {}
+                            for contact_info in value.get("contacts", []):
+                                if contact_info.get("wa_id") == message.get("from"):
+                                    contact = contact_info
+                                    break
+                            
+                            # Criar lead
+                            lead_data = LeadCreate(
+                                contact_name=contact.get("profile", {}).get("name", f"Cliente {message.get('from', 'Desconhecido')}"),
+                                phone=message.get("from", ""),
+                                initial_message=message.get("text", {}).get("body", "Mensagem recebida via WhatsApp"),
+                                source="WhatsApp Business"
+                            )
+                            
+                            new_lead = create_lead(db, lead_data)
+                            
+                            # Distribuir automaticamente
+                            assigned_broker = distribute_lead(db, new_lead.id)
+                            
+                            if assigned_broker:
+                                # Notificar corretor via WebSocket
+                                await manager.send_personal_message(
+                                    json.dumps({
+                                        "type": "new_lead",
+                                        "lead": {
+                                            "id": new_lead.id,
+                                            "contact_name": new_lead.contact_name,
+                                            "phone": new_lead.phone,
+                                            "message": new_lead.initial_message
+                                        }
+                                    }),
+                                    assigned_broker.id
+                                )
         
-        # Distribuir automaticamente para o próximo corretor
-        assigned_broker = distribute_lead(db, new_lead.id)
-        
-        if assigned_broker:
-            # Notificar corretor via WebSocket
-            await manager.send_personal_message(
-                json.dumps({
-                    "type": "new_lead",
-                    "lead": {
-                        "id": new_lead.id,
-                        "contact_name": new_lead.contact_name,
-                        "phone": new_lead.phone,
-                        "message": new_lead.initial_message
-                    }
-                }),
-                assigned_broker.id
+        # Formato simples para testes
+        else:
+            lead_data = LeadCreate(
+                contact_name=body.get("contact_name", "Cliente Desconhecido"),
+                phone=body.get("phone", ""),
+                initial_message=body.get("message", "Mensagem recebida via WhatsApp"),
+                source="WhatsApp Business"
             )
         
-        return {"status": "success", "lead_id": new_lead.id}
+            new_lead = create_lead(db, lead_data)
+            
+            # Distribuir automaticamente
+            assigned_broker = distribute_lead(db, new_lead.id)
+            
+            if assigned_broker:
+                # Notificar corretor via WebSocket
+                await manager.send_personal_message(
+                    json.dumps({
+                        "type": "new_lead",
+                        "lead": {
+                            "id": new_lead.id,
+                            "contact_name": new_lead.contact_name,
+                            "phone": new_lead.phone,
+                            "message": new_lead.initial_message
+                        }
+                    }),
+                    assigned_broker.id
+                )
+        
+        return {"status": "success", "message": "Webhook processado com sucesso"}
     
     except Exception as e:
+        print(f"Erro no webhook WhatsApp: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar webhook: {str(e)}")
 
 # Dashboard e estatísticas
@@ -357,6 +432,29 @@ async def export_leads_pdf_endpoint(
         media_type='application/pdf',
         filename=f"leads_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     )
+
+# Endpoint para reordenar corretores
+@app.patch("/api/brokers/reorder")
+async def reorder_brokers(
+    order_updates: List[dict],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    
+    try:
+        for update in order_updates:
+            broker_id = update.get("id")
+            new_order = update.get("distribution_order")
+            
+            if broker_id and new_order is not None:
+                broker_update = BrokerUpdate(distribution_order=new_order)
+                update_broker(db, broker_id, broker_update)
+        
+        return {"message": "Ordem atualizada com sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar ordem: {str(e)}")
 
 # WebSocket para notificações em tempo real
 @app.websocket("/ws/{user_id}")

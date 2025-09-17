@@ -1,0 +1,491 @@
+{% extends "base.html" %}
+
+{% block title %}Leads - Sistema de Leads{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h3">Gestão de Leads</h1>
+        <p class="text-muted">Gerencie todos os leads capturados via WhatsApp Business</p>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addLeadModal">
+            <i class="bi bi-plus-lg"></i> Novo Lead
+        </button>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label">Status</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">Todos</option>
+                    <option value="novo">Novo</option>
+                    <option value="em_andamento">Em Andamento</option>
+                    <option value="fechado">Fechado</option>
+                    <option value="perdido">Perdido</option>
+                </select>
+            </div>
+            <div class="col-md-3" id="brokerFilterCol" style="display: none;">
+                <label for="brokerFilter" class="form-label">Corretor</label>
+                <select class="form-select" id="brokerFilter">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="dateFromFilter" class="form-label">Data Inicial</label>
+                <input type="date" class="form-control" id="dateFromFilter">
+            </div>
+            <div class="col-md-3">
+                <label for="dateToFilter" class="form-label">Data Final</label>
+                <input type="date" class="form-control" id="dateToFilter">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela de Leads -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Lista de Leads</h5>
+        <div>
+            <span class="badge bg-primary" id="totalLeadsCount">0</span>
+            <small class="text-muted ms-2">leads encontrados</small>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nome</th>
+                        <th>Telefone</th>
+                        <th>Status</th>
+                        <th>Corretor</th>
+                        <th>Fonte</th>
+                        <th>Data</th>
+                        <th width="120">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsTableBody">
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <div class="spinner-border spinner-border-sm me-2"></div>
+                            Carregando leads...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Paginação -->
+    <div class="card-footer bg-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-muted">Mostrando <span id="showingFrom">0</span> a <span id="showingTo">0</span> de <span id="totalResults">0</span> resultados</small>
+            </div>
+            <nav>
+                <ul class="pagination pagination-sm mb-0" id="pagination">
+                    <!-- Paginação será gerada via JavaScript -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Adicionar Lead -->
+<div class="modal fade" id="addLeadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Novo Lead</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addLeadForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="contactName" class="form-label">Nome do Contato *</label>
+                        <input type="text" class="form-control" id="contactName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Telefone *</label>
+                        <input type="tel" class="form-control" id="phone" placeholder="(11) 99999-9999" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="initialMessage" class="form-label">Mensagem Inicial</label>
+                        <textarea class="form-control" id="initialMessage" rows="3" placeholder="Primeira mensagem do cliente..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="source" class="form-label">Fonte</label>
+                        <select class="form-select" id="source">
+                            <option value="Manual">Manual</option>
+                            <option value="WhatsApp Business">WhatsApp Business</option>
+                            <option value="Site">Site</option>
+                            <option value="Indicação">Indicação</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="saveLeadBtn">Salvar Lead</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Lead -->
+<div class="modal fade" id="editLeadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Lead</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editLeadForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editLeadId">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editContactName" class="form-label">Nome do Contato *</label>
+                                <input type="text" class="form-control" id="editContactName" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editPhone" class="form-label">Telefone *</label>
+                                <input type="tel" class="form-control" id="editPhone" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editStatus" class="form-label">Status</label>
+                                <select class="form-select" id="editStatus">
+                                    <option value="novo">Novo</option>
+                                    <option value="em_andamento">Em Andamento</option>
+                                    <option value="fechado">Fechado</option>
+                                    <option value="perdido">Perdido</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="editBrokerCol" style="display: none;">
+                            <div class="mb-3">
+                                <label for="editBroker" class="form-label">Corretor</label>
+                                <select class="form-select" id="editBroker">
+                                    <option value="">Não atribuído</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editNotes" class="form-label">Observações</label>
+                        <textarea class="form-control" id="editNotes" rows="4" placeholder="Observações sobre o lead..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="updateLeadBtn">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+const itemsPerPage = 20;
+let currentFilters = {};
+
+// Carregar leads
+async function loadLeads(page = 1, filters = {}) {
+    try {
+        const params = new URLSearchParams({
+            skip: (page - 1) * itemsPerPage,
+            limit: itemsPerPage,
+            ...filters
+        });
+        
+        const response = await fetchWithAuth(`/api/leads?${params}`);
+        const leads = await response.json();
+        
+        if (response.ok) {
+            displayLeads(leads);
+            updatePagination(leads.length, page);
+        } else {
+            showToast('Erro', 'Erro ao carregar leads', 'error');
+        }
+    } catch (error) {
+        console.error('Erro ao carregar leads:', error);
+        showToast('Erro', 'Erro de conexão ao carregar leads', 'error');
+    }
+}
+
+// Exibir leads na tabela
+function displayLeads(leads) {
+    const tbody = document.getElementById('leadsTableBody');
+    const totalCount = document.getElementById('totalLeadsCount');
+    
+    totalCount.textContent = leads.length;
+    
+    if (leads.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Nenhum lead encontrado</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = leads.map(lead => {
+        const statusBadge = getStatusBadge(lead.status);
+        const brokerName = lead.assigned_broker ? lead.assigned_broker.name : '<span class="text-muted">Não atribuído</span>';
+        
+        return `
+            <tr>
+                <td>${lead.contact_name}</td>
+                <td>${formatPhone(lead.phone)}</td>
+                <td>${statusBadge}</td>
+                <td>${brokerName}</td>
+                <td><span class="badge bg-light text-dark">${lead.source}</span></td>
+                <td>${formatDate(lead.created_at)}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="editLead(${lead.id})" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteLead(${lead.id})" title="Excluir" ${!isAdmin() ? 'disabled' : ''}>
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Verificar se é admin
+function isAdmin() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.is_admin;
+}
+
+// Adicionar lead
+document.getElementById('addLeadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const btn = document.getElementById('saveLeadBtn');
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
+    
+    try {
+        const leadData = {
+            contact_name: form.contactName.value,
+            phone: form.phone.value.replace(/\D/g, ''),
+            initial_message: form.initialMessage.value,
+            source: form.source.value
+        };
+        
+        const response = await fetchWithAuth('/api/leads', {
+            method: 'POST',
+            body: JSON.stringify(leadData)
+        });
+        
+        if (response.ok) {
+            showToast('Sucesso', 'Lead adicionado com sucesso', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addLeadModal')).hide();
+            form.reset();
+            loadLeads(currentPage, currentFilters);
+        } else {
+            const error = await response.json();
+            showToast('Erro', error.detail || 'Erro ao adicionar lead', 'error');
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão', 'error');
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+});
+
+// Editar lead
+async function editLead(leadId) {
+    try {
+        const response = await fetchWithAuth(`/api/leads/${leadId}`);
+        const lead = await response.json();
+        
+        if (response.ok) {
+            // Preencher modal
+            document.getElementById('editLeadId').value = lead.id;
+            document.getElementById('editContactName').value = lead.contact_name;
+            document.getElementById('editPhone').value = lead.phone;
+            document.getElementById('editStatus').value = lead.status;
+            document.getElementById('editNotes').value = lead.notes || '';
+            
+            // Mostrar modal
+            new bootstrap.Modal(document.getElementById('editLeadModal')).show();
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro ao carregar dados do lead', 'error');
+    }
+}
+
+// Salvar alterações do lead
+document.getElementById('editLeadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const btn = document.getElementById('updateLeadBtn');
+    const leadId = form.editLeadId.value;
+    
+    showLoading(btn, 'Salvando...');
+    
+    try {
+        const updateData = {
+            contact_name: form.editContactName.value,
+            phone: form.editPhone.value.replace(/\D/g, ''),
+            status: form.editStatus.value,
+            notes: form.editNotes.value
+        };
+        
+        const response = await fetchWithAuth(`/api/leads/${leadId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData)
+        });
+        
+        if (response.ok) {
+            showToast('Sucesso', 'Lead atualizado com sucesso', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editLeadModal')).hide();
+            loadLeads(currentPage, currentFilters);
+        } else {
+            const error = await response.json();
+            showToast('Erro', error.detail || 'Erro ao atualizar lead', 'error');
+        }
+    } catch (error) {
+        showToast('Erro', 'Erro de conexão', 'error');
+    }
+    
+    hideLoading(btn);
+});
+
+// Deletar lead
+function deleteLead(leadId) {
+    if (!isAdmin()) {
+        showToast('Erro', 'Apenas administradores podem deletar leads', 'error');
+        return;
+    }
+    
+    confirmAction('Tem certeza que deseja deletar este lead? Esta ação não pode ser desfeita.', async () => {
+        try {
+            const response = await fetchWithAuth(`/api/leads/${leadId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                showToast('Sucesso', 'Lead deletado com sucesso', 'success');
+                loadLeads(currentPage, currentFilters);
+            } else {
+                const error = await response.json();
+                showToast('Erro', error.detail || 'Erro ao deletar lead', 'error');
+            }
+        } catch (error) {
+            showToast('Erro', 'Erro de conexão', 'error');
+        }
+    });
+}
+
+// Aplicar filtros
+function applyFilters() {
+    const filters = {};
+    
+    const status = document.getElementById('statusFilter').value;
+    if (status) filters.status = status;
+    
+    const broker = document.getElementById('brokerFilter').value;
+    if (broker) filters.broker_id = broker;
+    
+    const dateFrom = document.getElementById('dateFromFilter').value;
+    if (dateFrom) filters.date_from = dateFrom;
+    
+    const dateTo = document.getElementById('dateToFilter').value;
+    if (dateTo) filters.date_to = dateTo;
+    
+    currentFilters = filters;
+    currentPage = 1;
+    loadLeads(currentPage, currentFilters);
+}
+
+// Event listeners para filtros
+document.getElementById('statusFilter').addEventListener('change', applyFilters);
+document.getElementById('brokerFilter').addEventListener('change', applyFilters);
+document.getElementById('dateFromFilter').addEventListener('change', applyFilters);
+document.getElementById('dateToFilter').addEventListener('change', applyFilters);
+
+// Aplicar máscara de telefone
+document.getElementById('phone').addEventListener('input', function() {
+    maskPhone(this);
+});
+
+document.getElementById('editPhone').addEventListener('input', function() {
+    maskPhone(this);
+});
+
+// Atualizar paginação
+function updatePagination(itemsCount, currentPage) {
+    const showingFrom = (currentPage - 1) * itemsPerPage + 1;
+    const showingTo = Math.min(currentPage * itemsPerPage, itemsCount);
+    
+    document.getElementById('showingFrom').textContent = showingFrom;
+    document.getElementById('showingTo').textContent = showingTo;
+    document.getElementById('totalResults').textContent = itemsCount;
+}
+
+// Configurar interface baseada no papel do usuário
+function setupUserInterface() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    
+    if (user.is_admin) {
+        // Mostrar filtro de corretor para admin
+        document.getElementById('brokerFilterCol').style.display = 'block';
+        document.getElementById('editBrokerCol').style.display = 'block';
+        
+        // Carregar lista de corretores
+        loadBrokers();
+    }
+}
+
+// Carregar corretores
+async function loadBrokers() {
+    try {
+        const response = await fetchWithAuth('/api/brokers');
+        const brokers = await response.json();
+        
+        if (response.ok) {
+            const brokerSelect = document.getElementById('brokerFilter');
+            const editBrokerSelect = document.getElementById('editBroker');
+            
+            brokers.forEach(broker => {
+                const option = new Option(broker.user.name, broker.user.id);
+                brokerSelect.add(option.cloneNode(true));
+                editBrokerSelect.add(option);
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao carregar corretores:', error);
+    }
+}
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    setupUserInterface();
+    loadLeads();
+});
+</script>
+{% endblock %}
