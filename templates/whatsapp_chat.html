@@ -1,0 +1,690 @@
+{% extends "base.html" %}
+{% block title %}WhatsApp Chat - Sistema de Leads{% endblock %}
+
+{% block extra_css %}
+<style>
+.whatsapp-interface {
+    height: calc(100vh - 120px);
+    min-height: 600px;
+}
+
+.conversation-list {
+    border-right: 1px solid #dee2e6;
+    height: 100%;
+    overflow-y: auto;
+    background: #f8f9fa;
+}
+
+.conversation-item {
+    border-bottom: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.conversation-item:hover {
+    background-color: #e9ecef;
+}
+
+.conversation-item.active {
+    background-color: #25d366;
+    color: white;
+}
+
+.conversation-item.active .text-muted {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.chat-area {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header {
+    border-bottom: 1px solid #dee2e6;
+    background: #075e54;
+    color: white;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    background: linear-gradient(to bottom, #e5ddd5 0%, #d2dbdc 100%);
+    padding: 20px;
+}
+
+.message {
+    margin-bottom: 10px;
+    max-width: 70%;
+    word-wrap: break-word;
+}
+
+.message.sent {
+    margin-left: auto;
+    background: #dcf8c6;
+    border-radius: 15px 15px 5px 15px;
+}
+
+.message.received {
+    background: white;
+    border-radius: 15px 15px 15px 5px;
+}
+
+.message-content {
+    padding: 8px 12px;
+}
+
+.message-time {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: right;
+    margin-top: 2px;
+}
+
+.message.received .message-time {
+    text-align: left;
+}
+
+.chat-input-area {
+    border-top: 1px solid #dee2e6;
+    background: white;
+    padding: 15px;
+}
+
+.chat-input {
+    border-radius: 25px;
+    border: 1px solid #ddd;
+    resize: none;
+}
+
+.send-btn {
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    background: #25d366;
+    border: none;
+    color: white;
+}
+
+.send-btn:hover {
+    background: #128c7e;
+}
+
+.empty-chat {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #666;
+}
+
+.whatsapp-logo {
+    font-size: 6rem;
+    color: #25d366;
+    margin-bottom: 2rem;
+}
+
+.connection-status {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    z-index: 1000;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Status da conexão -->
+    <div class="connection-status">
+        <div id="connectionStatusBadge" class="badge bg-secondary">
+            <i class="bi bi-wifi-off me-1"></i>
+            Verificando conexão...
+        </div>
+    </div>
+
+    <!-- Interface principal do WhatsApp -->
+    <div class="row g-0 whatsapp-interface">
+        <!-- Lista de conversas -->
+        <div class="col-md-4 col-lg-3 conversation-list">
+            <!-- Cabeçalho da lista -->
+            <div class="p-3 bg-success text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-whatsapp me-2"></i>
+                        Conversas
+                    </h5>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-light btn-sm" onclick="refreshConversations()" title="Atualizar">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <button class="btn btn-outline-light btn-sm" onclick="newMessage()" title="Nova mensagem">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Barra de pesquisa -->
+                <div class="mt-2">
+                    <input type="text" class="form-control form-control-sm" 
+                           placeholder="Buscar contatos..." 
+                           id="searchInput"
+                           onkeyup="filterConversations()">
+                </div>
+            </div>
+
+            <!-- Lista de conversas -->
+            <div id="conversationsList" class="p-0">
+                <div class="text-center p-4">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Carregando conversas...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Área de chat -->
+        <div class="col-md-8 col-lg-9 chat-area">
+            <!-- Estado vazio - nenhuma conversa selecionada -->
+            <div id="emptyChatState" class="empty-chat">
+                <i class="bi bi-whatsapp whatsapp-logo"></i>
+                <h4>WhatsApp Business Web</h4>
+                <p class="text-muted">Selecione uma conversa para começar a chatear</p>
+                <p class="text-muted small">
+                    <i class="bi bi-shield-check me-1"></i>
+                    Suas mensagens são protegidas com criptografia ponta-a-ponta
+                </p>
+            </div>
+
+            <!-- Área de chat ativa -->
+            <div id="activeChatArea" class="d-none h-100">
+                <!-- Cabeçalho do chat -->
+                <div class="chat-header p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar bg-light rounded-circle me-3 d-flex align-items-center justify-content-center" 
+                             style="width: 40px; height: 40px;">
+                            <i class="bi bi-person-fill text-success"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-0" id="chatContactName">Nome do Contato</h6>
+                            <small class="text-light opacity-75" id="chatContactPhone">+55 11 99999-9999</small>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-light btn-sm" onclick="searchInChat()" title="Buscar">
+                                <i class="bi bi-search"></i>
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" onclick="chatOptions()" title="Opções">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mensagens -->
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Mensagens aparecerão aqui dinamicamente -->
+                </div>
+
+                <!-- Área de digitação -->
+                <div class="chat-input-area">
+                    <div class="d-flex gap-2 align-items-end">
+                        <!-- Botões de anexo -->
+                        <div class="btn-group-vertical">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="attachFile()" title="Anexar">
+                                <i class="bi bi-paperclip"></i>
+                            </button>
+                        </div>
+
+                        <!-- Campo de texto -->
+                        <div class="flex-grow-1">
+                            <textarea class="form-control chat-input" 
+                                    id="messageInput"
+                                    placeholder="Digite uma mensagem..."
+                                    rows="1"
+                                    onkeypress="handleEnterKey(event)"
+                                    oninput="autoResize(this)"></textarea>
+                        </div>
+
+                        <!-- Botão enviar -->
+                        <button class="btn send-btn" onclick="sendMessage()">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para nova mensagem -->
+<div class="modal fade" id="newMessageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-chat-plus me-2"></i>
+                    Nova Mensagem
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newContactPhone" class="form-label">Número do WhatsApp:</label>
+                    <input type="text" class="form-control" id="newContactPhone" 
+                           placeholder="Ex: 5511999999999" maxlength="15">
+                    <div class="form-text">Digite o número com código do país (Ex: 55 para Brasil)</div>
+                </div>
+                <div class="mb-3">
+                    <label for="newContactMessage" class="form-label">Mensagem:</label>
+                    <textarea class="form-control" id="newContactMessage" rows="3" 
+                              placeholder="Digite sua mensagem..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="sendNewMessage()">
+                    <i class="bi bi-send me-2"></i>
+                    Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Variáveis globais
+let currentConnectionId = null;
+let activeConversation = null;
+let conversations = [];
+let messages = {};
+let websocket = null;
+
+// Inicializar quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    if (!requireAuth()) return;
+    
+    // Obter connection_id da URL
+    const urlParams = new URLSearchParams(window.location.search);
+    currentConnectionId = urlParams.get('connection_id');
+    
+    if (!currentConnectionId) {
+        showAlert('Conexão WhatsApp não especificada. Redirecionando...', 'warning');
+        setTimeout(() => window.location.href = '/whatsapp', 2000);
+        return;
+    }
+    
+    initializeChat();
+});
+
+// Inicializar interface de chat
+async function initializeChat() {
+    // Verificar status da conexão
+    await checkConnectionStatus();
+    
+    // Carregar conversas
+    await loadConversations();
+    
+    // Conectar WebSocket para atualizações em tempo real
+    connectWebSocket();
+    
+    // Atualizar conversas periodicamente
+    setInterval(loadConversations, 30000); // A cada 30 segundos
+}
+
+// Verificar status da conexão WhatsApp
+async function checkConnectionStatus() {
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${currentConnectionId}/status`);
+        const data = await response.json();
+        
+        const statusBadge = document.getElementById('connectionStatusBadge');
+        
+        if (data.status === 'connected') {
+            statusBadge.className = 'badge bg-success';
+            statusBadge.innerHTML = '<i class="bi bi-wifi me-1"></i> Conectado';
+        } else {
+            statusBadge.className = 'badge bg-danger';
+            statusBadge.innerHTML = '<i class="bi bi-wifi-off me-1"></i> Desconectado';
+            
+            if (data.status === 'disconnected') {
+                showAlert('WhatsApp desconectado. Reconectando...', 'warning');
+                setTimeout(() => window.location.href = '/whatsapp', 3000);
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao verificar status:', error);
+    }
+}
+
+// Carregar lista de conversas
+async function loadConversations() {
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${currentConnectionId}/conversations`);
+        
+        if (response.ok) {
+            conversations = await response.json();
+            renderConversations();
+        } else {
+            document.getElementById('conversationsList').innerHTML = `
+                <div class="text-center p-4 text-muted">
+                    <i class="bi bi-chat-x" style="font-size: 3rem;"></i>
+                    <p class="mt-2">Erro ao carregar conversas</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar conversas:', error);
+    }
+}
+
+// Renderizar lista de conversas
+function renderConversations() {
+    const container = document.getElementById('conversationsList');
+    
+    if (conversations.length === 0) {
+        container.innerHTML = `
+            <div class="text-center p-4 text-muted">
+                <i class="bi bi-chat" style="font-size: 3rem;"></i>
+                <p class="mt-2">Nenhuma conversa ainda</p>
+                <button class="btn btn-success btn-sm" onclick="newMessage()">
+                    <i class="bi bi-plus me-1"></i> Iniciar conversa
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    const conversationsHTML = conversations.map(conv => {
+        const lastMessage = conv.last_message || 'Nenhuma mensagem';
+        const lastTime = conv.last_message_time ? 
+            new Date(conv.last_message_time).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) : 
+            '';
+        
+        return `
+            <div class="conversation-item p-3" onclick="selectConversation('${conv.phone}', '${conv.name}')">
+                <div class="d-flex">
+                    <div class="avatar bg-success rounded-circle me-3 d-flex align-items-center justify-content-center" 
+                         style="width: 48px; height: 48px; min-width: 48px;">
+                        <i class="bi bi-person-fill text-white"></i>
+                    </div>
+                    <div class="flex-grow-1 min-width-0">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h6 class="mb-0 text-truncate">${conv.name}</h6>
+                            <small class="text-muted">${lastTime}</small>
+                        </div>
+                        <p class="mb-0 text-muted text-truncate small">${lastMessage}</p>
+                        ${conv.unread_count > 0 ? `
+                            <span class="badge bg-success rounded-pill small">${conv.unread_count}</span>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = conversationsHTML;
+}
+
+// Selecionar uma conversa
+async function selectConversation(phone, name) {
+    activeConversation = { phone, name };
+    
+    // Atualizar UI
+    document.getElementById('emptyChatState').classList.add('d-none');
+    document.getElementById('activeChatArea').classList.remove('d-none');
+    
+    document.getElementById('chatContactName').textContent = name;
+    document.getElementById('chatContactPhone').textContent = phone;
+    
+    // Marcar conversa como ativa
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    event.currentTarget.classList.add('active');
+    
+    // Carregar mensagens da conversa
+    await loadMessages(phone);
+}
+
+// Carregar mensagens de uma conversa
+async function loadMessages(phone) {
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${currentConnectionId}/messages/${phone}`);
+        
+        if (response.ok) {
+            const conversationMessages = await response.json();
+            messages[phone] = conversationMessages;
+            renderMessages(phone);
+        }
+    } catch (error) {
+        console.error('Erro ao carregar mensagens:', error);
+    }
+}
+
+// Renderizar mensagens
+function renderMessages(phone) {
+    const container = document.getElementById('chatMessages');
+    const phoneMessages = messages[phone] || [];
+    
+    if (phoneMessages.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted">
+                <p>Nenhuma mensagem ainda. Inicie a conversa!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const messagesHTML = phoneMessages.map(msg => {
+        const messageClass = msg.sent_by_me ? 'sent' : 'received';
+        const time = new Date(msg.timestamp).toLocaleTimeString('pt-BR', {
+            hour: '2-digit', 
+            minute: '2-digit'
+        });
+        
+        return `
+            <div class="message ${messageClass}">
+                <div class="message-content">
+                    ${msg.content}
+                    <div class="message-time">${time}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = messagesHTML;
+    
+    // Scroll para o final
+    container.scrollTop = container.scrollHeight;
+}
+
+// Enviar mensagem
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+    
+    if (!message || !activeConversation) return;
+    
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${currentConnectionId}/send`, {
+            method: 'POST',
+            body: JSON.stringify({
+                to_number: activeConversation.phone,
+                message: message
+            })
+        });
+        
+        if (response.ok) {
+            // Adicionar mensagem localmente
+            if (!messages[activeConversation.phone]) {
+                messages[activeConversation.phone] = [];
+            }
+            
+            messages[activeConversation.phone].push({
+                content: message,
+                sent_by_me: true,
+                timestamp: new Date().toISOString()
+            });
+            
+            renderMessages(activeConversation.phone);
+            input.value = '';
+            
+            // Recarregar conversas para atualizar última mensagem
+            setTimeout(loadConversations, 1000);
+        } else {
+            showAlert('Erro ao enviar mensagem', 'danger');
+        }
+    } catch (error) {
+        console.error('Erro ao enviar mensagem:', error);
+        showAlert('Erro ao enviar mensagem', 'danger');
+    }
+}
+
+// Conectar WebSocket para mensagens em tempo real
+function connectWebSocket() {
+    try {
+        const token = localStorage.getItem('token');
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/${token}`;
+        
+        websocket = new WebSocket(wsUrl);
+        
+        websocket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'whatsapp_message') {
+                // Nova mensagem WhatsApp recebida
+                handleNewMessage(data.message);
+            }
+        };
+        
+        websocket.onclose = function() {
+            // Tentar reconectar após 5 segundos
+            setTimeout(connectWebSocket, 5000);
+        };
+    } catch (error) {
+        console.error('Erro ao conectar WebSocket:', error);
+    }
+}
+
+// Manipular nova mensagem recebida
+function handleNewMessage(message) {
+    const phone = message.from_number;
+    
+    // Adicionar à lista de mensagens
+    if (!messages[phone]) {
+        messages[phone] = [];
+    }
+    
+    messages[phone].push({
+        content: message.content,
+        sent_by_me: false,
+        timestamp: message.timestamp
+    });
+    
+    // Se é a conversa ativa, atualizar mensagens
+    if (activeConversation && activeConversation.phone === phone) {
+        renderMessages(phone);
+    }
+    
+    // Recarregar conversas para atualizar
+    loadConversations();
+    
+    // Mostrar notificação
+    if (Notification.permission === 'granted') {
+        new Notification('Nova mensagem WhatsApp', {
+            body: `${message.contact_name}: ${message.content}`,
+            icon: '/static/favicon.ico'
+        });
+    }
+}
+
+// Utilitários
+function handleEnterKey(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+}
+
+function autoResize(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+}
+
+function refreshConversations() {
+    loadConversations();
+}
+
+function newMessage() {
+    new bootstrap.Modal(document.getElementById('newMessageModal')).show();
+}
+
+async function sendNewMessage() {
+    const phone = document.getElementById('newContactPhone').value.trim();
+    const message = document.getElementById('newContactMessage').value.trim();
+    
+    if (!phone || !message) {
+        showAlert('Preencha todos os campos', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${currentConnectionId}/send`, {
+            method: 'POST',
+            body: JSON.stringify({
+                to_number: phone,
+                message: message
+            })
+        });
+        
+        if (response.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('newMessageModal')).hide();
+            showAlert('Mensagem enviada com sucesso!', 'success');
+            
+            // Limpar campos
+            document.getElementById('newContactPhone').value = '';
+            document.getElementById('newContactMessage').value = '';
+            
+            // Recarregar conversas
+            setTimeout(loadConversations, 1000);
+        } else {
+            showAlert('Erro ao enviar mensagem', 'danger');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        showAlert('Erro ao enviar mensagem', 'danger');
+    }
+}
+
+function filterConversations() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const items = document.querySelectorAll('.conversation-item');
+    
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(search) ? 'block' : 'none';
+    });
+}
+
+// Funções placeholder para futuras implementações
+function searchInChat() {
+    showAlert('Buscar em chat - em breve!', 'info');
+}
+
+function chatOptions() {
+    showAlert('Opções do chat - em breve!', 'info');
+}
+
+function attachFile() {
+    showAlert('Anexar arquivo - em breve!', 'info');
+}
+
+// Solicitar permissão para notificações
+if (Notification.permission === 'default') {
+    Notification.requestPermission();
+}
+</script>
+{% endblock %}

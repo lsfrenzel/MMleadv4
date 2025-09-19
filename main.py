@@ -33,7 +33,10 @@ from crud import (
     get_dashboard_stats, export_leads_excel, export_leads_pdf,
     create_whatsapp_connection, get_whatsapp_connections, get_whatsapp_connection,
     get_whatsapp_connection_by_phone_id, update_whatsapp_connection,
-    update_whatsapp_connection_status, delete_whatsapp_connection
+    update_whatsapp_connection_status, delete_whatsapp_connection,
+    create_or_get_whatsapp_conversation, get_whatsapp_conversations,
+    create_whatsapp_message, get_whatsapp_messages, get_conversation_by_phone,
+    mark_messages_as_read
 )
 
 app = FastAPI(
@@ -121,6 +124,10 @@ async def settings_page(request: Request):
 @app.get("/whatsapp", response_class=HTMLResponse)
 async def whatsapp_page(request: Request):
     return templates.TemplateResponse("whatsapp.html", {"request": request})
+
+@app.get("/whatsapp/chat", response_class=HTMLResponse)
+async def whatsapp_chat_page(request: Request):
+    return templates.TemplateResponse("whatsapp_chat.html", {"request": request})
 
 # Rotas de autenticação
 @app.post("/api/register", response_model=UserResponse)
@@ -573,8 +580,9 @@ async def send_whatsapp_message(
     current_user: User = Depends(get_current_user)
 ):
     """Enviar mensagem via WhatsApp"""
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    # Permitir acesso a admins e brokers às suas conexões
+    if not (current_user.is_admin or current_user.role == "broker"):
+        raise HTTPException(status_code=403, detail="Acesso não autorizado")
     
     connection = get_whatsapp_connection(db, connection_id)
     if not connection:
@@ -589,6 +597,22 @@ async def send_whatsapp_message(
             message_data.to_number,
             message_data.message
         )
+        
+        # Salvar mensagem enviada no banco de dados
+        if result.get("status") == "success":
+            try:
+                # Encontrar ou criar conversa
+                conversation = create_or_get_whatsapp_conversation(
+                    db, connection.id, message_data.to_number, 
+                    f"Cliente {message_data.to_number}"
+                )
+                
+                # Salvar mensagem enviada
+                create_whatsapp_message(
+                    db, conversation.id, message_data.message, sent_by_me=True
+                )
+            except Exception as e:
+                print(f"Erro ao salvar mensagem enviada: {e}")
         
         return result
     except Exception as e:
@@ -605,14 +629,100 @@ async def send_test_message(
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     
     try:
-        connection_id = int(data.get("connection_id"))
-        to_number = str(data.get("to_number"))
-        message = str(data.get("message"))
+        connection_id = data.get("connection_id")
+        to_number = data.get("to_number")
+        message = data.get("message")
+        
+        if not connection_id or not to_number or not message:
+            raise ValueError("connection_id, to_number e message são obrigatórios")
+        
+        connection_id = int(connection_id)
+        to_number = str(to_number)
+        message = str(message)
         
         message_data = WhatsAppMessageSend(to_number=to_number, message=message)
         return await send_whatsapp_message(connection_id, message_data, db, current_user)
     except (ValueError, TypeError) as e:
         raise HTTPException(status_code=400, detail=f"Dados inválidos: {str(e)}")
+
+# Endpoints para conversas e mensagens WhatsApp
+@app.get("/api/whatsapp/connections/{connection_id}/conversations")
+async def get_connection_conversations(
+    connection_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obter conversas de uma conexão WhatsApp"""
+    # Permitir acesso a admins e brokers às suas conexões
+    if not (current_user.is_admin or current_user.role == "broker"):
+        raise HTTPException(status_code=403, detail="Acesso não autorizado")
+    
+    # Verificar se a conexão existe
+    connection = get_whatsapp_connection(db, connection_id)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    try:
+        conversations = get_whatsapp_conversations(db, connection_id)
+        
+        # Formatar resposta para o frontend
+        result = []
+        for conv in conversations:
+            result.append({
+                "phone": conv.phone_number,
+                "name": conv.contact_name,
+                "last_message": conv.last_message or "Nenhuma mensagem",
+                "last_message_time": conv.last_message_time.isoformat() if conv.last_message_time else None,
+                "unread_count": conv.unread_count
+            })
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar conversas: {str(e)}")
+
+@app.get("/api/whatsapp/connections/{connection_id}/messages/{phone}")
+async def get_conversation_messages(
+    connection_id: int,
+    phone: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obter mensagens de uma conversa específica"""
+    # Permitir acesso a admins e brokers às suas conexões
+    if not (current_user.is_admin or current_user.role == "broker"):
+        raise HTTPException(status_code=403, detail="Acesso não autorizado")
+    
+    # Verificar se a conexão existe
+    connection = get_whatsapp_connection(db, connection_id)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    try:
+        # Obter conversa
+        conversation = get_conversation_by_phone(db, connection_id, phone)
+        if not conversation:
+            return []
+        
+        # Marcar mensagens como lidas
+        mark_messages_as_read(db, conversation.id)
+        
+        # Obter mensagens
+        messages = get_whatsapp_messages(db, conversation.id)
+        
+        # Formatar resposta para o frontend
+        result = []
+        for msg in messages:
+            result.append({
+                "content": msg.content,
+                "sent_by_me": msg.sent_by_me,
+                "timestamp": msg.timestamp.isoformat(),
+                "message_type": msg.message_type,
+                "status": msg.status
+            })
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar mensagens: {str(e)}")
 
 # Webhook Maytapi para receber mensagens
 @app.post("/api/maytapi-webhook")
@@ -655,7 +765,21 @@ async def maytapi_webhook(request: Request, db: Session = Depends(get_db)):
                 return {"status": "ignored", "message": "Mensagem própria ignorada"}
             
             if from_number and message_text:
-                # Criar lead automaticamente
+                # Encontrar conexão WhatsApp
+                connection = get_whatsapp_connection_by_phone_id(db, phone_id)
+                
+                if connection:
+                    # Criar ou obter conversa
+                    conversation = create_or_get_whatsapp_conversation(
+                        db, connection.id, from_number, contact_name
+                    )
+                    
+                    # Salvar mensagem recebida
+                    create_whatsapp_message(
+                        db, conversation.id, message_text, sent_by_me=False
+                    )
+                
+                # Criar lead automaticamente (processo original)
                 lead_data = LeadCreate(
                     contact_name=contact_name,
                     phone=from_number,
@@ -669,7 +793,7 @@ async def maytapi_webhook(request: Request, db: Session = Depends(get_db)):
                 assigned_broker = distribute_lead(db, new_lead.id)
                 
                 if assigned_broker:
-                    # Notificar corretor via WebSocket
+                    # Notificar corretor via WebSocket (lead)
                     await manager.send_personal_message(
                         json.dumps({
                             "type": "new_lead",
@@ -682,6 +806,19 @@ async def maytapi_webhook(request: Request, db: Session = Depends(get_db)):
                         }),
                         assigned_broker.id
                     )
+                
+                    # Notificar sobre nova mensagem WhatsApp via WebSocket
+                    if connection:
+                        await manager.broadcast(json.dumps({
+                            "type": "whatsapp_message",
+                            "message": {
+                                "connection_id": connection.id,
+                                "from_number": from_number,
+                                "contact_name": contact_name,
+                                "content": message_text,
+                                "timestamp": datetime.now().isoformat()
+                            }
+                        }))
                 
                 # Atualizar status da conexão se phone_id disponível
                 if phone_id:

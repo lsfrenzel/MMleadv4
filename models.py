@@ -4,7 +4,7 @@ from sqlalchemy.sql import func
 from database import Base
 import enum
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
@@ -117,6 +117,49 @@ class WhatsAppConnection(Base):
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relacionamentos
+    conversations: Mapped[List["WhatsAppConversation"]] = relationship("WhatsAppConversation", back_populates="connection", cascade="all, delete-orphan")
+
+
+class WhatsAppConversation(Base):
+    __tablename__ = "whatsapp_conversations"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    connection_id: Mapped[int] = mapped_column(Integer, ForeignKey("whatsapp_connections.id", ondelete="CASCADE"), nullable=False)
+    phone_number: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    contact_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_message_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    unread_count: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relacionamentos
+    connection: Mapped["WhatsAppConnection"] = relationship("WhatsAppConnection", back_populates="conversations")
+    messages: Mapped[List["WhatsAppMessage"]] = relationship("WhatsAppMessage", back_populates="conversation", cascade="all, delete-orphan")
+
+
+class WhatsAppMessage(Base):
+    __tablename__ = "whatsapp_messages"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    conversation_id: Mapped[int] = mapped_column(Integer, ForeignKey("whatsapp_conversations.id", ondelete="CASCADE"), nullable=False)
+    message_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)  # ID da Maytapi
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    sent_by_me: Mapped[bool] = mapped_column(Boolean, default=False)
+    message_type: Mapped[str] = mapped_column(String(20), default="text")  # text, image, audio, etc.
+    status: Mapped[str] = mapped_column(String(20), default="sent")  # sent, delivered, read, failed
+    
+    # Timestamps
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relacionamento
+    conversation: Mapped["WhatsAppConversation"] = relationship("WhatsAppConversation", back_populates="messages")
 
 class SystemConfig(Base):
     __tablename__ = "system_configs"

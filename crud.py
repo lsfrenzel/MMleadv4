@@ -12,7 +12,7 @@ from reportlab.pdfgen import canvas
 import os
 
 # Importações locais
-from models import User, Lead, Broker, LeadDistribution, LeadStatus, LeadStatusEnum, WhatsAppConnection
+from models import User, Lead, Broker, LeadDistribution, LeadStatus, LeadStatusEnum, WhatsAppConnection, WhatsAppConversation, WhatsAppMessage
 from schemas import (
     UserCreate, LeadCreate, LeadUpdate, BrokerCreate, BrokerUpdate,
     LeadFilters, DashboardStats
@@ -440,3 +440,87 @@ def delete_whatsapp_connection(db: Session, connection_id: int) -> bool:
         db.commit()
         return True
     return False
+
+# ========== WhatsApp Conversations CRUD ==========
+
+def create_or_get_whatsapp_conversation(db: Session, connection_id: int, phone_number: str, contact_name: str) -> WhatsAppConversation:
+    """Criar ou obter conversa de WhatsApp"""
+    
+    # Tentar obter conversa existente
+    conversation = db.query(WhatsAppConversation).filter(
+        WhatsAppConversation.connection_id == connection_id,
+        WhatsAppConversation.phone_number == phone_number
+    ).first()
+    
+    if not conversation:
+        # Criar nova conversa
+        conversation = WhatsAppConversation(
+            connection_id=connection_id,
+            phone_number=phone_number,
+            contact_name=contact_name
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+    
+    return conversation
+
+def get_whatsapp_conversations(db: Session, connection_id: int) -> List[WhatsAppConversation]:
+    """Obter conversas de uma conexão WhatsApp"""
+    return db.query(WhatsAppConversation).filter(
+        WhatsAppConversation.connection_id == connection_id,
+        WhatsAppConversation.is_active == True
+    ).order_by(WhatsAppConversation.last_message_time.desc()).all()
+
+def update_conversation_last_message(db: Session, conversation_id: int, message: str, timestamp: datetime):
+    """Atualizar última mensagem da conversa"""
+    conversation = db.query(WhatsAppConversation).filter(WhatsAppConversation.id == conversation_id).first()
+    if conversation:
+        conversation.last_message = message
+        conversation.last_message_time = timestamp
+        db.commit()
+        db.refresh(conversation)
+
+# ========== WhatsApp Messages CRUD ==========
+
+def create_whatsapp_message(db: Session, conversation_id: int, content: str, sent_by_me: bool = False, message_id: Optional[str] = None, timestamp: Optional[datetime] = None) -> WhatsAppMessage:
+    """Criar nova mensagem de WhatsApp"""
+    
+    if not timestamp:
+        timestamp = datetime.now()
+    
+    message = WhatsAppMessage(
+        conversation_id=conversation_id,
+        message_id=message_id,
+        content=content,
+        sent_by_me=sent_by_me,
+        timestamp=timestamp
+    )
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    
+    # Atualizar última mensagem da conversa
+    update_conversation_last_message(db, conversation_id, content, timestamp)
+    
+    return message
+
+def get_whatsapp_messages(db: Session, conversation_id: int, skip: int = 0, limit: int = 100) -> List[WhatsAppMessage]:
+    """Obter mensagens de uma conversa"""
+    return db.query(WhatsAppMessage).filter(
+        WhatsAppMessage.conversation_id == conversation_id
+    ).order_by(WhatsAppMessage.timestamp.asc()).offset(skip).limit(limit).all()
+
+def get_conversation_by_phone(db: Session, connection_id: int, phone_number: str) -> Optional[WhatsAppConversation]:
+    """Obter conversa por número de telefone"""
+    return db.query(WhatsAppConversation).filter(
+        WhatsAppConversation.connection_id == connection_id,
+        WhatsAppConversation.phone_number == phone_number
+    ).first()
+
+def mark_messages_as_read(db: Session, conversation_id: int):
+    """Marcar mensagens como lidas"""
+    conversation = db.query(WhatsAppConversation).filter(WhatsAppConversation.id == conversation_id).first()
+    if conversation:
+        conversation.unread_count = 0
+        db.commit()
