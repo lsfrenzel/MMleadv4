@@ -10,21 +10,31 @@ import json
 
 class MaytapiClient:
     def __init__(self):
-        self.product_id = None
-        self.token = None
+        self.product_id = os.getenv("MAYTAPI_PRODUCT_ID")
+        self.token = os.getenv("MAYTAPI_TOKEN")
         self.base_url = "https://api.maytapi.com/api"
         self.headers = None
         self._initialized = False
+        
+        # Inicializar imediatamente se as credenciais estiverem disponíveis
+        if self.product_id and self.token:
+            self.headers = {
+                "x-maytapi-key": self.token,
+                "Content-Type": "application/json"
+            }
+            self._initialized = True
     
     def _ensure_initialized(self):
-        """Inicializar cliente de forma lazy com verificação de credenciais"""
+        """Verificar se o cliente está inicializado com credenciais válidas"""
         if self._initialized:
             return True
             
+        # Tentar carregar credenciais novamente
         self.product_id = os.getenv("MAYTAPI_PRODUCT_ID")
         self.token = os.getenv("MAYTAPI_TOKEN")
         
         if not self.product_id or not self.token:
+            print(f"Credenciais Maytapi: Product ID={self.product_id}, Token={'presente' if self.token else 'ausente'}")
             return False
         
         self.headers = {
@@ -47,7 +57,14 @@ class MaytapiClient:
                 )
                 response.raise_for_status()
                 data = response.json()
-                return {"status": "success", "data": data.get("data", [])}
+                
+                # A API listPhones retorna diretamente um array
+                if isinstance(data, list):
+                    return {"status": "success", "data": data}
+                elif data.get("success"):
+                    return {"status": "success", "data": data.get("data", [])}
+                else:
+                    return {"status": "error", "message": data.get("message", "Erro ao listar telefones")}
         except Exception as e:
             print(f"Erro ao listar telefones: {e}")
             return {"status": "error", "message": str(e)}
@@ -81,7 +98,20 @@ class MaytapiClient:
                     headers=self.headers
                 )
                 response.raise_for_status()
-                return response.json()
+                data = response.json()
+                
+                # Converter formato da resposta Maytapi
+                if data.get("success"):
+                    return {
+                        "status": "success",
+                        "screen": data.get("data", {}).get("screen"),
+                        "message": "QR Code obtido com sucesso"
+                    }
+                else:
+                    return {
+                        "status": "error",
+                        "message": data.get("message", "Erro ao obter QR Code")
+                    }
         except Exception as e:
             print(f"Erro ao obter QR Code para {phone_id}: {e}")
             return {"status": "error", "message": str(e)}
@@ -111,18 +141,46 @@ class MaytapiClient:
             return {"status": "error", "message": str(e)}
     
     async def create_phone_connection(self) -> Dict:
-        """Criar nova conexão de telefone"""
+        """Criar nova conexão de telefone ou usar telefone existente"""
         if not self._ensure_initialized():
             return {"status": "error", "message": "Credenciais Maytapi não configuradas"}
             
         try:
+            # Primeiro, verificar se já existe um telefone disponível
+            phone_list = await self.get_phone_list()
+            if phone_list.get("status") == "success" and phone_list.get("data"):
+                # Usar o primeiro telefone disponível
+                existing_phone = phone_list["data"][0]
+                phone_id = str(existing_phone.get("id"))
+                
+                return {
+                    "status": "success",
+                    "phone_id": phone_id,
+                    "message": f"Usando telefone existente: {phone_id}",
+                    "existing": True
+                }
+            
+            # Se não há telefones, tentar criar um novo
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.base_url}/{self.product_id}/addPhone",
                     headers=self.headers
                 )
                 response.raise_for_status()
-                return response.json()
+                data = response.json()
+                
+                # Converter formato da resposta Maytapi para formato padrão
+                if data.get("success"):
+                    return {
+                        "status": "success",
+                        "phone_id": str(data.get("data", {}).get("id")),
+                        "message": "Conexão criada com sucesso"
+                    }
+                else:
+                    return {
+                        "status": "error", 
+                        "message": data.get("message", "Erro desconhecido")
+                    }
         except Exception as e:
             print(f"Erro ao criar conexão: {e}")
             return {"status": "error", "message": str(e)}
