@@ -32,6 +32,10 @@ outputType = "webview"
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 41485
+externalPort = 3000
+
 [agent]
 expertMode = true
 integrations = ["python_database:1.0.0"]
