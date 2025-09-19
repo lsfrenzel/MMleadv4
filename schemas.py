@@ -182,3 +182,48 @@ class SystemConfigResponse(SystemConfigBase):
     
     class Config:
         from_attributes = True
+
+# Schemas de WhatsApp
+class WhatsAppConnectionBase(BaseModel):
+    phone_id: str
+    phone_number: Optional[str] = None
+    auto_respond: bool = False
+    welcome_message: Optional[str] = None
+
+class WhatsAppConnectionCreate(BaseModel):
+    auto_respond: bool = False
+    welcome_message: Optional[str] = None
+
+class WhatsAppConnectionUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    auto_respond: Optional[bool] = None
+    welcome_message: Optional[str] = None
+
+class WhatsAppConnectionResponse(WhatsAppConnectionBase):
+    id: int
+    status: str
+    is_active: bool
+    webhook_configured: bool
+    last_seen: Optional[datetime]
+    created_at: datetime
+    updated_at: Optional[datetime]
+    
+    class Config:
+        from_attributes = True
+
+class WhatsAppQRResponse(BaseModel):
+    phone_id: str
+    qr_code: Optional[str] = None
+    status: str
+    message: Optional[str] = None
+
+class WhatsAppMessageSend(BaseModel):
+    to_number: str
+    message: str
+
+class WhatsAppWebhookMessage(BaseModel):
+    phone_id: str
+    from_number: str
+    message: str
+    contact_name: Optional[str] = None
+    timestamp: Optional[datetime] = None

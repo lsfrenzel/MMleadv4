@@ -99,6 +99,25 @@ class LeadStatus(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 
+class WhatsAppConnection(Base):
+    __tablename__ = "whatsapp_connections"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    phone_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    phone_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="disconnected")  # disconnected, connecting, connected, error
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    webhook_configured: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_seen: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    
+    # Configurações
+    auto_respond: Mapped[bool] = mapped_column(Boolean, default=False)
+    welcome_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now())
+
 class SystemConfig(Base):
     __tablename__ = "system_configs"
     

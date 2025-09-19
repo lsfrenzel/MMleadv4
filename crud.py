@@ -12,7 +12,7 @@ from reportlab.pdfgen import canvas
 import os
 
 # Importações locais
-from models import User, Lead, Broker, LeadDistribution, LeadStatus, LeadStatusEnum
+from models import User, Lead, Broker, LeadDistribution, LeadStatus, LeadStatusEnum, WhatsAppConnection
 from schemas import (
     UserCreate, LeadCreate, LeadUpdate, BrokerCreate, BrokerUpdate,
     LeadFilters, DashboardStats
@@ -381,3 +381,62 @@ def export_leads_pdf(db: Session, filters: LeadFilters) -> str:
     doc.build(story)
     
     return filename
+
+# CRUD de WhatsApp Connections
+def create_whatsapp_connection(db: Session, phone_id: str, auto_respond: bool = False, welcome_message: Optional[str] = None) -> WhatsAppConnection:
+    """Criar nova conexão de WhatsApp"""
+    db_connection = WhatsAppConnection(
+        phone_id=phone_id,
+        auto_respond=auto_respond,
+        welcome_message=welcome_message,
+        status="disconnected"
+    )
+    db.add(db_connection)
+    db.commit()
+    db.refresh(db_connection)
+    return db_connection
+
+def get_whatsapp_connections(db: Session, skip: int = 0, limit: int = 100) -> List[WhatsAppConnection]:
+    """Listar conexões de WhatsApp"""
+    return db.query(WhatsAppConnection).offset(skip).limit(limit).all()
+
+def get_whatsapp_connection(db: Session, connection_id: int) -> Optional[WhatsAppConnection]:
+    """Buscar conexão de WhatsApp por ID"""
+    return db.query(WhatsAppConnection).filter(WhatsAppConnection.id == connection_id).first()
+
+def get_whatsapp_connection_by_phone_id(db: Session, phone_id: str) -> Optional[WhatsAppConnection]:
+    """Buscar conexão de WhatsApp por phone_id"""
+    return db.query(WhatsAppConnection).filter(WhatsAppConnection.phone_id == phone_id).first()
+
+def update_whatsapp_connection(db: Session, connection_id: int, **kwargs) -> Optional[WhatsAppConnection]:
+    """Atualizar conexão de WhatsApp"""
+    connection = db.query(WhatsAppConnection).filter(WhatsAppConnection.id == connection_id).first()
+    if connection:
+        for key, value in kwargs.items():
+            if hasattr(connection, key):
+                setattr(connection, key, value)
+        connection.updated_at = datetime.now()
+        db.commit()
+        db.refresh(connection)
+    return connection
+
+def update_whatsapp_connection_status(db: Session, phone_id: str, status: str, phone_number: Optional[str] = None) -> Optional[WhatsAppConnection]:
+    """Atualizar status da conexão WhatsApp"""
+    connection = db.query(WhatsAppConnection).filter(WhatsAppConnection.phone_id == phone_id).first()
+    if connection:
+        connection.status = status
+        connection.last_seen = datetime.now()
+        if phone_number:
+            connection.phone_number = phone_number
+        db.commit()
+        db.refresh(connection)
+    return connection
+
+def delete_whatsapp_connection(db: Session, connection_id: int) -> bool:
+    """Deletar conexão de WhatsApp"""
+    connection = db.query(WhatsAppConnection).filter(WhatsAppConnection.id == connection_id).first()
+    if connection:
+        db.delete(connection)
+        db.commit()
+        return True
+    return False

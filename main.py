@@ -13,21 +13,27 @@ import json
 
 # Importações locais
 from database import get_db, create_tables
-from models import User, Lead, Broker, LeadDistribution, LeadStatus
+from models import User, Lead, Broker, LeadDistribution, LeadStatus, WhatsAppConnection
 from auth import authenticate_user, create_access_token, get_current_user
+from maytapi import maytapi_client
 from schemas import (
     UserCreate, UserResponse, UserLogin, Token,
     LeadCreate, LeadResponse, LeadUpdate,
     BrokerCreate, BrokerResponse, BrokerUpdate,
     LeadDistributionResponse, WhatsAppWebhook,
-    DashboardStats, LeadFilters
+    DashboardStats, LeadFilters,
+    WhatsAppConnectionCreate, WhatsAppConnectionResponse, WhatsAppConnectionUpdate,
+    WhatsAppQRResponse, WhatsAppMessageSend, WhatsAppWebhookMessage
 )
 from crud import (
     create_user, get_user_by_email, get_brokers,
     create_lead, get_leads, update_lead, delete_lead,
     create_broker, update_broker, delete_broker,
     get_lead_distribution_history, distribute_lead,
-    get_dashboard_stats, export_leads_excel, export_leads_pdf
+    get_dashboard_stats, export_leads_excel, export_leads_pdf,
+    create_whatsapp_connection, get_whatsapp_connections, get_whatsapp_connection,
+    get_whatsapp_connection_by_phone_id, update_whatsapp_connection,
+    update_whatsapp_connection_status, delete_whatsapp_connection
 )
 
 app = FastAPI(
@@ -111,6 +117,10 @@ async def reports_page(request: Request):
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     return templates.TemplateResponse("settings.html", {"request": request})
+
+@app.get("/whatsapp", response_class=HTMLResponse)
+async def whatsapp_page(request: Request):
+    return templates.TemplateResponse("whatsapp.html", {"request": request})
 
 # Rotas de autenticação
 @app.post("/api/register", response_model=UserResponse)
@@ -455,6 +465,247 @@ async def reorder_brokers(
         return {"message": "Ordem atualizada com sucesso"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao atualizar ordem: {str(e)}")
+
+# Rotas de WhatsApp - Apenas para admins
+@app.get("/api/whatsapp/connections", response_model=List[WhatsAppConnectionResponse])
+async def get_whatsapp_connections_endpoint(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Listar todas as conexões de WhatsApp"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    return get_whatsapp_connections(db, skip, limit)
+
+@app.post("/api/whatsapp/connections", response_model=WhatsAppConnectionResponse)
+async def create_whatsapp_connection_endpoint(
+    connection_data: WhatsAppConnectionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Criar nova conexão de WhatsApp"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    
+    try:
+        # Criar nova conexão via Maytapi
+        result = await maytapi_client.create_phone_connection()
+        
+        if result.get("status") == "success":
+            phone_id = result.get("phone_id")
+            if not phone_id:
+                raise HTTPException(status_code=500, detail="ID do telefone não retornado pela API")
+            
+            # Salvar no banco de dados
+            connection = create_whatsapp_connection(
+                db, 
+                phone_id=phone_id,
+                auto_respond=connection_data.auto_respond,
+                welcome_message=connection_data.welcome_message
+            )
+            
+            # Configurar webhook se necessário
+            base_url = str(request.base_url).rstrip('/')
+            webhook_url = f"{base_url}/api/maytapi-webhook"
+            webhook_result = await maytapi_client.set_webhook(phone_id, webhook_url)
+            
+            webhook_configured = webhook_result.get("status") == "success"
+            update_whatsapp_connection(db, connection.id, 
+                                     webhook_configured=webhook_configured,
+                                     status="connecting" if webhook_configured else "error")
+            
+            return connection
+        else:
+            raise HTTPException(status_code=500, detail=f"Erro ao criar conexão: {result.get('message', 'Erro desconhecido')}")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao criar conexão: {str(e)}")
+
+@app.get("/api/whatsapp/connections/{connection_id}/qr", response_model=WhatsAppQRResponse)
+async def get_whatsapp_qr_code(
+    connection_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obter QR Code para conectar WhatsApp"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    
+    connection = get_whatsapp_connection(db, connection_id)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    try:
+        result = await maytapi_client.get_qr_code(connection.phone_id)
+        
+        return WhatsAppQRResponse(
+            phone_id=connection.phone_id,
+            qr_code=result.get("screen"),
+            status=result.get("status", "unknown"),
+            message=result.get("message")
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao obter QR Code: {str(e)}")
+
+@app.get("/api/whatsapp/connections/{connection_id}/status")
+async def get_whatsapp_connection_status(
+    connection_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Verificar status da conexão WhatsApp"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    
+    connection = get_whatsapp_connection(db, connection_id)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    try:
+        result = await maytapi_client.get_phone_status(connection.phone_id)
+        
+        # Atualizar status no banco de dados
+        new_status = result.get("status", "unknown")
+        phone_number = result.get("phone_number")
+        update_whatsapp_connection_status(db, connection.phone_id, new_status, phone_number)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao verificar status: {str(e)}")
+
+@app.put("/api/whatsapp/connections/{connection_id}", response_model=WhatsAppConnectionResponse)
+async def update_whatsapp_connection_endpoint(
+    connection_id: int,
+    connection_update: WhatsAppConnectionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Atualizar configurações da conexão WhatsApp"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    
+    connection = update_whatsapp_connection(
+        db, 
+        connection_id, 
+        **connection_update.dict(exclude_unset=True)
+    )
+    
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    return connection
+
+@app.delete("/api/whatsapp/connections/{connection_id}")
+async def delete_whatsapp_connection_endpoint(
+    connection_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Deletar conexão WhatsApp"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    
+    connection = get_whatsapp_connection(db, connection_id)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    try:
+        # Remover da API Maytapi
+        await maytapi_client.delete_phone_connection(connection.phone_id)
+        
+        # Remover do banco de dados
+        success = delete_whatsapp_connection(db, connection_id)
+        
+        if success:
+            return {"message": "Conexão removida com sucesso"}
+        else:
+            raise HTTPException(status_code=500, detail="Erro ao remover conexão do banco de dados")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao deletar conexão: {str(e)}")
+
+@app.post("/api/whatsapp/connections/{connection_id}/send")
+async def send_whatsapp_message(
+    connection_id: int,
+    message_data: WhatsAppMessageSend,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Enviar mensagem via WhatsApp"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    
+    connection = get_whatsapp_connection(db, connection_id)
+    if not connection:
+        raise HTTPException(status_code=404, detail="Conexão não encontrada")
+    
+    if connection.status != "connected":
+        raise HTTPException(status_code=400, detail="WhatsApp não está conectado")
+    
+    try:
+        result = await maytapi_client.send_message(
+            connection.phone_id,
+            message_data.to_number,
+            message_data.message
+        )
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao enviar mensagem: {str(e)}")
+
+# Webhook Maytapi para receber mensagens
+@app.post("/api/maytapi-webhook")
+async def maytapi_webhook(request: Request, db: Session = Depends(get_db)):
+    """Webhook para receber mensagens da Maytapi"""
+    try:
+        body = await request.json()
+        
+        # Processar mensagem da Maytapi
+        if body.get("type") == "message":
+            phone_id = body.get("phone_id")
+            from_number = body.get("user", {}).get("phone")
+            message = body.get("message", {}).get("text", "")
+            contact_name = body.get("user", {}).get("name", f"Contato {from_number}")
+            
+            if phone_id and from_number and message:
+                # Criar lead automaticamente
+                lead_data = LeadCreate(
+                    contact_name=contact_name,
+                    phone=from_number,
+                    initial_message=message,
+                    source="WhatsApp Maytapi"
+                )
+                
+                new_lead = create_lead(db, lead_data)
+                
+                # Distribuir automaticamente
+                assigned_broker = distribute_lead(db, new_lead.id)
+                
+                if assigned_broker:
+                    # Notificar corretor via WebSocket
+                    await manager.send_personal_message(
+                        json.dumps({
+                            "type": "new_lead",
+                            "lead": {
+                                "id": new_lead.id,
+                                "contact_name": new_lead.contact_name,
+                                "phone": new_lead.phone,
+                                "message": new_lead.initial_message
+                            }
+                        }),
+                        assigned_broker.id
+                    )
+                
+                # Atualizar último acesso da conexão
+                update_whatsapp_connection_status(db, phone_id, "connected")
+        
+        return {"status": "success"}
+    
+    except Exception as e:
+        print(f"Erro no webhook Maytapi: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 # WebSocket para notificações em tempo real
 @app.websocket("/ws/{user_id}")

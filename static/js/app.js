@@ -77,6 +77,8 @@ function requireAuth() {
         if (brokersMenu) brokersMenu.style.display = 'block';
         const settingsMenu = document.getElementById('settingsMenu');
         if (settingsMenu) settingsMenu.style.display = 'block';
+        const whatsappMenu = document.getElementById('whatsappMenu');
+        if (whatsappMenu) whatsappMenu.style.display = 'block';
     }
     
     return true;

@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+{% block title %}WhatsApp - Sistema de Leads{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-whatsapp text-success me-2"></i>
+                    Gestão de WhatsApp
+                </h1>
+                <button class="btn btn-success" onclick="createConnection()">
+                    <i class="bi bi-plus-lg"></i> Nova Conexão
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert para mensagens -->
+    <div id="alertContainer"></div>
+
+    <!-- Lista de Conexões -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-list-ul me-2"></i>
+                        Conexões WhatsApp
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="connectionsContainer">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Carregando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para QR Code -->
+<div class="modal fade" id="qrModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Conectar WhatsApp</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="qrContainer">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Gerando QR Code...</span>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <p class="text-muted">Escaneie o QR Code com seu WhatsApp para conectar</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-success" onclick="refreshQR()" id="refreshQRBtn">
+                    <i class="bi bi-arrow-clockwise"></i> Atualizar QR
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Configurações -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configurações da Conexão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="settingsForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Resposta Automática</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoRespond">
+                            <label class="form-check-label" for="autoRespond">
+                                Ativar resposta automática
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="welcomeMessage" class="form-label">Mensagem de Boas-vindas</label>
+                        <textarea class="form-control" id="welcomeMessage" rows="3" 
+                                placeholder="Digite a mensagem de boas-vindas..."></textarea>
+                        <div class="form-text">Mensagem enviada automaticamente para novos contatos</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentConnectionId = null;
+let connections = [];
+
+// Carregar conexões ao inicializar a página
+document.addEventListener('DOMContentLoaded', function() {
+    if (!requireAuth()) return;
+    loadConnections();
+});
+
+// Carregar lista de conexões
+async function loadConnections() {
+    try {
+        const response = await fetchWithAuth('/api/whatsapp/connections');
+        if (response.ok) {
+            connections = await response.json();
+            renderConnections();
+        } else {
+            showAlert('Erro ao carregar conexões', 'danger');
+        }
+    } catch (error) {
+        showAlert('Erro ao carregar conexões: ' + error.message, 'danger');
+    }
+}
+
+// Renderizar conexões na interface
+function renderConnections() {
+    const container = document.getElementById('connectionsContainer');
+    
+    if (connections.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-whatsapp" style="font-size: 4rem;"></i>
+                <h5 class="mt-3">Nenhuma conexão WhatsApp</h5>
+                <p>Clique em "Nova Conexão" para começar</p>
+            </div>
+        `;
+        return;
+    }
+
+    const connectionsHTML = connections.map(connection => {
+        const statusColor = getStatusColor(connection.status);
+        const statusText = getStatusText(connection.status);
+        
+        return `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h6 class="card-title mb-1">
+                                WhatsApp ${connection.phone_number || connection.phone_id}
+                            </h6>
+                            <p class="card-text text-muted mb-0">
+                                ID: ${connection.phone_id}
+                            </p>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="badge bg-${statusColor} fs-6">
+                                <i class="bi bi-circle-fill me-1" style="font-size: 0.6rem;"></i>
+                                ${statusText}
+                            </span>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            <div class="btn-group" role="group">
+                                ${connection.status === 'disconnected' || connection.status === 'connecting' ? 
+                                    `<button class="btn btn-success btn-sm" onclick="showQRCode(${connection.id})">
+                                        <i class="bi bi-qr-code"></i> QR Code
+                                    </button>` : ''
+                                }
+                                <button class="btn btn-info btn-sm" onclick="checkStatus(${connection.id})">
+                                    <i class="bi bi-arrow-clockwise"></i> Status
+                                </button>
+                                <button class="btn btn-primary btn-sm" onclick="showSettings(${connection.id})">
+                                    <i class="bi bi-gear"></i> Config
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteConnection(${connection.id})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    ${connection.auto_respond && connection.welcome_message ? `
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="bi bi-chat-dots"></i> 
+                                Resposta automática ativa: "${connection.welcome_message.substring(0, 50)}..."
+                            </small>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = connectionsHTML;
+}
+
+// Obter cor do status
+function getStatusColor(status) {
+    switch (status) {
+        case 'connected': return 'success';
+        case 'connecting': return 'warning';
+        case 'disconnected': return 'secondary';
+        case 'error': return 'danger';
+        default: return 'secondary';
+    }
+}
+
+// Obter texto do status
+function getStatusText(status) {
+    switch (status) {
+        case 'connected': return 'Conectado';
+        case 'connecting': return 'Conectando';
+        case 'disconnected': return 'Desconectado';
+        case 'error': return 'Erro';
+        default: return 'Desconhecido';
+    }
+}
+
+// Criar nova conexão
+async function createConnection() {
+    try {
+        const response = await fetchWithAuth('/api/whatsapp/connections', {
+            method: 'POST',
+            body: JSON.stringify({
+                auto_respond: false,
+                welcome_message: null
+            })
+        });
+
+        if (response.ok) {
+            const newConnection = await response.json();
+            showAlert('Conexão criada com sucesso!', 'success');
+            await loadConnections();
+            showQRCode(newConnection.id);
+        } else {
+            const error = await response.json();
+            showAlert('Erro ao criar conexão: ' + (error.detail || 'Erro desconhecido'), 'danger');
+        }
+    } catch (error) {
+        showAlert('Erro ao criar conexão: ' + error.message, 'danger');
+    }
+}
+
+// Mostrar QR Code
+async function showQRCode(connectionId) {
+    currentConnectionId = connectionId;
+    const modal = new bootstrap.Modal(document.getElementById('qrModal'));
+    modal.show();
+    
+    await loadQRCode(connectionId);
+}
+
+// Carregar QR Code
+async function loadQRCode(connectionId) {
+    const container = document.getElementById('qrContainer');
+    container.innerHTML = `
+        <div class="spinner-border text-success" role="status">
+            <span class="visually-hidden">Gerando QR Code...</span>
+        </div>
+    `;
+
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${connectionId}/qr`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.qr_code) {
+                container.innerHTML = `<img src="${data.qr_code}" alt="QR Code" class="img-fluid" style="max-width: 300px;">`;
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        QR Code não disponível. Status: ${data.status}
+                    </div>
+                `;
+            }
+        } else {
+            const error = await response.json();
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle"></i>
+                    Erro: ${error.detail || 'Não foi possível obter o QR Code'}
+                </div>
+            `;
+        }
+    } catch (error) {
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-x-circle"></i>
+                Erro: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Atualizar QR Code
+function refreshQR() {
+    if (currentConnectionId) {
+        loadQRCode(currentConnectionId);
+    }
+}
+
+// Verificar status da conexão
+async function checkStatus(connectionId) {
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${connectionId}/status`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            showAlert(`Status atualizado: ${getStatusText(data.status)}`, 'info');
+            await loadConnections();
+        } else {
+            const error = await response.json();
+            showAlert('Erro ao verificar status: ' + (error.detail || 'Erro desconhecido'), 'danger');
+        }
+    } catch (error) {
+        showAlert('Erro ao verificar status: ' + error.message, 'danger');
+    }
+}
+
+// Mostrar configurações
+function showSettings(connectionId) {
+    currentConnectionId = connectionId;
+    const connection = connections.find(c => c.id === connectionId);
+    
+    if (connection) {
+        document.getElementById('autoRespond').checked = connection.auto_respond;
+        document.getElementById('welcomeMessage').value = connection.welcome_message || '';
+        
+        const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+        modal.show();
+    }
+}
+
+// Salvar configurações
+document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (!currentConnectionId) return;
+    
+    const autoRespond = document.getElementById('autoRespond').checked;
+    const welcomeMessage = document.getElementById('welcomeMessage').value;
+    
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${currentConnectionId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                auto_respond: autoRespond,
+                welcome_message: welcomeMessage || null
+            })
+        });
+        
+        if (response.ok) {
+            showAlert('Configurações salvas com sucesso!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
+            await loadConnections();
+        } else {
+            const error = await response.json();
+            showAlert('Erro ao salvar: ' + (error.detail || 'Erro desconhecido'), 'danger');
+        }
+    } catch (error) {
+        showAlert('Erro ao salvar: ' + error.message, 'danger');
+    }
+});
+
+// Deletar conexão
+async function deleteConnection(connectionId) {
+    if (!confirm('Tem certeza que deseja remover esta conexão? Isso irá desconectar o WhatsApp.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${connectionId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showAlert('Conexão removida com sucesso!', 'success');
+            await loadConnections();
+        } else {
+            const error = await response.json();
+            showAlert('Erro ao remover: ' + (error.detail || 'Erro desconhecido'), 'danger');
+        }
+    } catch (error) {
+        showAlert('Erro ao remover: ' + error.message, 'danger');
+    }
+}
+
+// Função para mostrar alertas
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alertContainer');
+    const alertId = 'alert-' + Date.now();
+    
+    const alertHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert" id="${alertId}">
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'x-circle' : 'info-circle'}"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    alertContainer.insertAdjacentHTML('beforeend', alertHTML);
+    
+    // Auto remover após 5 segundos
+    setTimeout(() => {
+        const alert = document.getElementById(alertId);
+        if (alert) {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+            bsAlert.close();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}
