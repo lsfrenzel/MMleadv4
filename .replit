@@ -22,7 +22,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "export SECRET_KEY=\"hwoFRTEYi_tVXzOpbfT50ebXgjI12n7UEux1CxdXRQI\" && export WHATSAPP_VERIFY_TOKEN=\"meu-token-secreto-12345\" && export MAYTAPI_PRODUCT_ID=\"optional\" && export MAYTAPI_TOKEN=\"optional\" && export ENVIRONMENT=\"development\" && uv run uvicorn main:app --host 0.0.0.0 --port 5000 --reload"
+args = "export SECRET_KEY=\"hwoFRTEYi_tVXzOpbfT50ebXgjI12n7UEux1CxdXRQI\" && export WHATSAPP_VERIFY_TOKEN=\"meu-token-secreto-12345\" && export MAYTAPI_PRODUCT_ID=\"b085f75e-230b-40d0-8b7c-73594d54a1f6\" && export MAYTAPI_TOKEN=\"3b6122ec-e12a-43c4-85de-1eb94fab2e7a\" && export ENVIRONMENT=\"development\" && uv run uvicorn main:app --host 0.0.0.0 --port 5000 --reload"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
@@ -31,10 +31,6 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 41485
-externalPort = 3000
 
 [agent]
 expertMode = true

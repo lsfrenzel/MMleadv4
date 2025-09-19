@@ -409,10 +409,8 @@ async def create_whatsapp_connection_endpoint(
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     
     try:
-        print(f"DEBUG: Iniciando criação de conexão WhatsApp...")
         # Obter ou criar conexão via Maytapi
         result = await maytapi_client.create_phone_connection()
-        print(f"DEBUG: Resultado da API Maytapi: {result}")
         
         if result.get("status") == "success":
             phone_id = result.get("phone_id")
@@ -462,9 +460,6 @@ async def create_whatsapp_connection_endpoint(
             raise HTTPException(status_code=500, detail=f"Erro ao criar conexão: {result.get('message', 'Erro desconhecido')}")
     
     except Exception as e:
-        print(f"DEBUG: Erro capturado: {str(e)}")
-        import traceback
-        print(f"DEBUG: Traceback completo: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erro ao criar conexão: {str(e)}")
 
 @app.get("/api/whatsapp/connections/{connection_id}/qr", response_model=WhatsAppQRResponse)
