@@ -18,7 +18,7 @@ This is a complete WhatsApp lead management system built with FastAPI (backend) 
 - Export functionality (Excel/PDF)
 - Dashboard with statistics
 
-## Recent Changes (Dec 19, 2025)
+## Recent Changes (Sep 19, 2025)
 - ✅ Successfully imported from GitHub
 - ✅ Set up PostgreSQL database connection
 - ✅ Installed all Python dependencies via uv
