@@ -20,17 +20,21 @@ args = "Server"
 name = "Server"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python main.py"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export SECRET_KEY=\"jBQePMBLEYVSYlQigq5bMprpxzzNs9XWdIS_HqbfYl0\" && export WHATSAPP_VERIFY_TOKEN=\"meu-token-secreto-12345\" && uv run python main.py"
+waitForPort = 5000
 
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 46255
+externalPort = 3000
 
 [agent]
 expertMode = true
