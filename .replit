@@ -41,6 +41,10 @@ localPort = 44165
 externalPort = 3002
 
 [[ports]]
+localPort = 45785
+externalPort = 3003
+
+[[ports]]
 localPort = 46255
 externalPort = 3000
 
@@ -49,4 +53,4 @@ expertMode = true
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["bash", "-c", "export SECRET_KEY=\"jBQePMBLEYVSYlQigq5bMprpxzzNs9XWdIS_HqbfYl0\" && export WHATSAPP_VERIFY_TOKEN=\"meu-token-secreto-12345\" && export ENVIRONMENT=\"production\" && uv run python main.py"]
+run = ["uv", "run", "python", "main.py"]
