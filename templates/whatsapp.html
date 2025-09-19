@@ -44,77 +44,86 @@
     </div>
 </div>
 
-<!-- Modal para QR Code -->
-<div class="modal fade" id="qrModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">
-                    <i class="bi bi-whatsapp me-2"></i>
-                    Conectar WhatsApp
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+<!-- Modal para QR Code - EXTRA LARGE -->
+<div class="modal fade" id="qrModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header bg-gradient bg-success text-white py-3">
+                <h4 class="modal-title fw-bold">
+                    <i class="bi bi-whatsapp me-3" style="font-size: 2rem;"></i>
+                    Conectar WhatsApp Business
+                </h4>
+                <button type="button" class="btn-close btn-close-white fs-4" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body text-center py-4">
+            <div class="modal-body text-center py-5" style="min-height: 600px;">
                 <div class="row">
-                    <div class="col-12 col-md-8 mx-auto">
-                        <div id="qrContainer" class="p-4 border rounded bg-light">
-                            <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+                    <div class="col-12 col-lg-8 mx-auto">
+                        <div id="qrContainer" class="p-5 border border-success rounded-4 bg-light shadow-sm position-relative" 
+                             style="min-height: 450px; cursor: pointer;" 
+                             onclick="enlargeQRCode()">
+                            <div class="spinner-border text-success" role="status" style="width: 4rem; height: 4rem;">
                                 <span class="visually-hidden">Gerando QR Code...</span>
                             </div>
                         </div>
                         
                         <!-- Status da conexão -->
-                        <div id="connectionStatus" class="mt-3">
-                            <div class="alert alert-info d-flex align-items-center">
-                                <i class="bi bi-info-circle me-2"></i>
+                        <div id="connectionStatus" class="mt-4">
+                            <div class="alert alert-info alert-lg d-flex align-items-center fs-5">
+                                <i class="bi bi-info-circle me-3" style="font-size: 1.5rem;"></i>
                                 <span>Aguardando QR Code...</span>
                             </div>
                         </div>
                         
                         <!-- Instruções detalhadas -->
-                        <div class="card mt-3">
-                            <div class="card-body">
-                                <h6 class="card-title">
+                        <div class="card mt-4 border-success">
+                            <div class="card-header bg-success bg-opacity-10">
+                                <h5 class="card-title mb-0 text-success">
                                     <i class="bi bi-phone me-2"></i>
-                                    Como conectar:
-                                </h6>
-                                <ol class="text-start small">
-                                    <li>Abra o WhatsApp no seu celular</li>
-                                    <li>Toque em <strong>Menu</strong> (⋮) → <strong>Dispositivos conectados</strong></li>
-                                    <li>Toque em <strong>Conectar um dispositivo</strong></li>
-                                    <li>Aponte a câmera para o QR Code acima</li>
-                                    <li>Aguarde a confirmação da conexão</li>
+                                    Como conectar seu WhatsApp:
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <ol class="text-start fs-6 lh-lg">
+                                    <li class="mb-2">📱 Abra o <strong>WhatsApp</strong> no seu celular</li>
+                                    <li class="mb-2">⚙️ Toque em <strong>Menu (⋮)</strong> → <strong>Dispositivos conectados</strong></li>
+                                    <li class="mb-2">➕ Toque em <strong>Conectar um dispositivo</strong></li>
+                                    <li class="mb-2">📸 <strong>Clique no QR Code acima</strong> para aumentá-lo e aponte a câmera</li>
+                                    <li class="mb-0">✅ Aguarde a confirmação da conexão</li>
                                 </ol>
-                                <div class="text-center">
-                                    <small class="text-muted">
-                                        <i class="bi bi-shield-check me-1"></i>
-                                        Conexão segura e criptografada
-                                    </small>
+                                <div class="text-center mt-4 p-3 bg-light rounded">
+                                    <h6 class="text-success mb-2">
+                                        <i class="bi bi-shield-check me-2"></i>
+                                        Conexão 100% Segura
+                                    </h6>
+                                    <p class="mb-0 text-muted">Suas mensagens são protegidas com criptografia end-to-end</p>
                                 </div>
                             </div>
                         </div>
                         
                         <!-- Timer de atualização -->
-                        <div class="mt-3">
-                            <small class="text-muted">
-                                <i class="bi bi-clock me-1"></i>
-                                QR Code atualiza automaticamente em <span id="qrTimer">30</span>s
-                            </small>
+                        <div class="mt-4 p-3 bg-warning bg-opacity-10 rounded border border-warning">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="bi bi-clock me-2 text-warning"></i>
+                                <span class="fw-bold">QR Code atualiza automaticamente em <span id="qrTimer" class="text-warning">30</span>s</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-lg"></i> Fechar
-                </button>
-                <button type="button" class="btn btn-success" onclick="refreshQR()" id="refreshQRBtn">
-                    <i class="bi bi-arrow-clockwise"></i> Atualizar QR
-                </button>
-                <button type="button" class="btn btn-info" onclick="checkConnectionStatus()" id="checkStatusBtn">
-                    <i class="bi bi-wifi"></i> Verificar Status
-                </button>
+            <div class="modal-footer bg-light py-3">
+                <div class="d-flex justify-content-between w-100">
+                    <button type="button" class="btn btn-outline-secondary btn-lg px-4" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-2"></i> Fechar
+                    </button>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-success btn-lg px-4" onclick="refreshQR()" id="refreshQRBtn">
+                            <i class="bi bi-arrow-clockwise me-2"></i> Atualizar QR
+                        </button>
+                        <button type="button" class="btn btn-info btn-lg px-4" onclick="checkConnectionStatus()" id="checkStatusBtn">
+                            <i class="bi bi-wifi me-2"></i> Verificar Status
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -387,14 +396,28 @@ async function loadQRCode(connectionId) {
             if (data.qr_code) {
                 container.innerHTML = `
                     <div class="d-flex flex-column align-items-center">
-                        <div class="border border-success rounded p-3 bg-white shadow">
-                            <img src="${data.qr_code}" alt="QR Code WhatsApp" class="img-fluid" style="max-width: 350px; width: 100%;">
+                        <div class="border border-success border-3 rounded-4 p-4 bg-white shadow-lg position-relative" 
+                             style="transition: all 0.3s ease; cursor: pointer;" 
+                             onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.15)'"
+                             onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'"
+                             onclick="enlargeQRCode('${data.qr_code}')">
+                            <img src="${data.qr_code}" alt="QR Code WhatsApp" class="img-fluid" 
+                                 style="max-width: 400px; width: 100%; min-width: 300px; transition: all 0.3s ease;">
+                            <div class="position-absolute top-0 end-0 m-2">
+                                <span class="badge bg-primary">
+                                    <i class="bi bi-arrows-fullscreen me-1"></i>
+                                    Clique para ampliar
+                                </span>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <span class="badge bg-success fs-6 px-3 py-2">
+                                <i class="bi bi-check-circle me-2"></i>
+                                QR Code ativo - Clique para ver maior
+                            </span>
                         </div>
                         <div class="mt-2">
-                            <span class="badge bg-success">
-                                <i class="bi bi-check-circle me-1"></i>
-                                QR Code ativo
-                            </span>
+                            <small class="text-muted">💡 Dica: Clique no QR Code para uma visualização ampliada</small>
                         </div>
                     </div>
                 `;
@@ -752,6 +775,66 @@ function showAlert(message, type) {
             bsAlert.close();
         }
     }, 5000);
+}
+
+// Função para ampliar o QR Code em modal separado
+function enlargeQRCode(qrCodeSrc) {
+    if (!qrCodeSrc) return;
+    
+    // Criar modal dinâmico para QR Code ampliado
+    const enlargedModal = document.createElement('div');
+    enlargedModal.className = 'modal fade';
+    enlargedModal.id = 'enlargedQRModal';
+    enlargedModal.setAttribute('tabindex', '-1');
+    enlargedModal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 90vw;">
+            <div class="modal-content bg-transparent border-0">
+                <div class="modal-header bg-success text-white rounded-top">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-qr-code me-2"></i>
+                        QR Code WhatsApp - Visualização Ampliada
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center p-5 bg-white">
+                    <div class="d-flex justify-content-center">
+                        <div class="border border-success border-4 rounded-4 p-4 bg-gradient shadow-lg" 
+                             style="background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);">
+                            <img src="${qrCodeSrc}" alt="QR Code WhatsApp Ampliado" 
+                                 class="img-fluid" 
+                                 style="width: 100%; max-width: 500px; min-width: 400px;">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="alert alert-success d-flex align-items-center justify-content-center fs-5">
+                            <i class="bi bi-phone me-3" style="font-size: 2rem;"></i>
+                            <div>
+                                <strong>Escaneie este código com seu WhatsApp</strong><br>
+                                <small>Aponte a câmera do seu celular para o código</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light rounded-bottom">
+                    <button type="button" class="btn btn-success btn-lg px-4" data-bs-dismiss="modal">
+                        <i class="bi bi-check-lg me-2"></i> Entendi
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Adicionar ao DOM
+    document.body.appendChild(enlargedModal);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(enlargedModal);
+    modal.show();
+    
+    // Remover modal do DOM após fechar
+    enlargedModal.addEventListener('hidden.bs.modal', function () {
+        document.body.removeChild(enlargedModal);
+    });
 }
 </script>
 {% endblock %}
