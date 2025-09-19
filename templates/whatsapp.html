@@ -204,49 +204,92 @@ function renderConnections() {
         const statusColor = getStatusColor(connection.status);
         const statusText = getStatusText(connection.status);
         
+        const isConnected = connection.status === 'connected';
+        const cardSize = isConnected ? 'card-lg' : '';
+        const buttonSize = isConnected ? 'btn-lg' : 'btn-sm';
+        
         return `
-            <div class="card mb-3">
-                <div class="card-body">
-                    <div class="row align-items-center">
+            <div class="card mb-4 ${cardSize} ${isConnected ? 'border-success shadow-lg' : ''}" style="${isConnected ? 'min-height: 200px;' : ''}">
+                <div class="card-body p-4">
+                    <div class="row align-items-center ${isConnected ? 'mb-3' : ''}">
                         <div class="col-md-6">
-                            <h6 class="card-title mb-1">
+                            <h${isConnected ? '4' : '6'} class="card-title mb-2 ${isConnected ? 'text-success' : ''}">
+                                <i class="bi bi-whatsapp text-success me-2" style="font-size: ${isConnected ? '2rem' : '1.2rem'};"></i>
                                 WhatsApp ${connection.phone_number || connection.phone_id}
-                            </h6>
-                            <p class="card-text text-muted mb-0">
+                            </h${isConnected ? '4' : '6'}>
+                            <p class="card-text ${isConnected ? 'fs-6' : 'text-muted'} mb-0">
                                 ID: ${connection.phone_id}
                             </p>
+                            ${isConnected ? `
+                                <p class="text-success mt-2 mb-0">
+                                    <i class="bi bi-check-circle-fill me-1"></i>
+                                    <strong>Conectado e ativo</strong>
+                                </p>
+                            ` : ''}
                         </div>
-                        <div class="col-md-3">
-                            <span class="badge bg-${statusColor} fs-6">
-                                <i class="bi bi-circle-fill me-1" style="font-size: 0.6rem;"></i>
+                        <div class="col-md-3 text-center">
+                            <span class="badge bg-${statusColor} ${isConnected ? 'fs-4 p-3' : 'fs-6 p-2'}">
+                                <i class="bi bi-circle-fill me-2" style="font-size: ${isConnected ? '1rem' : '0.6rem'};"></i>
                                 ${statusText}
                             </span>
                         </div>
                         <div class="col-md-3 text-end">
-                            <div class="btn-group" role="group">
+                            <div class="btn-group-vertical d-grid gap-2" role="group">
                                 ${connection.status === 'disconnected' || connection.status === 'connecting' ? 
-                                    `<button class="btn btn-success btn-sm" onclick="showQRCode(${connection.id})">
-                                        <i class="bi bi-qr-code"></i> QR Code
+                                    `<button class="btn btn-success ${buttonSize} fw-bold" onclick="showQRCode(${connection.id})" style="${isConnected ? 'padding: 12px 24px;' : ''}">
+                                        <i class="bi bi-qr-code me-2"></i> ${isConnected ? 'Reconectar QR' : 'QR Code'}
                                     </button>` : ''
                                 }
-                                <button class="btn btn-info btn-sm" onclick="checkStatus(${connection.id})">
-                                    <i class="bi bi-arrow-clockwise"></i> Status
+                                ${isConnected ? `
+                                    <button class="btn btn-outline-success ${buttonSize} fw-bold" onclick="sendTestMessage(${connection.id})" style="padding: 12px 24px;">
+                                        <i class="bi bi-chat-text me-2"></i> Enviar Teste
+                                    </button>
+                                ` : ''}
+                                <button class="btn btn-info ${buttonSize}" onclick="checkStatus(${connection.id})" style="${isConnected ? 'padding: 10px 20px;' : ''}">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> ${isConnected ? 'Verificar Status' : 'Status'}
                                 </button>
-                                <button class="btn btn-primary btn-sm" onclick="showSettings(${connection.id})">
-                                    <i class="bi bi-gear"></i> Config
+                                <button class="btn btn-primary ${buttonSize}" onclick="showSettings(${connection.id})" style="${isConnected ? 'padding: 10px 20px;' : ''}">
+                                    <i class="bi bi-gear me-1"></i> ${isConnected ? 'Configurações' : 'Config'}
                                 </button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteConnection(${connection.id})">
-                                    <i class="bi bi-trash"></i>
+                                <button class="btn btn-outline-danger ${buttonSize}" onclick="deleteConnection(${connection.id})" style="${isConnected ? 'padding: 10px 20px;' : ''}">
+                                    <i class="bi bi-trash me-1"></i> ${isConnected ? 'Desconectar' : 'Remover'}
                                 </button>
                             </div>
                         </div>
                     </div>
                     ${connection.auto_respond && connection.welcome_message ? `
-                        <div class="mt-2">
-                            <small class="text-muted">
-                                <i class="bi bi-chat-dots"></i> 
-                                Resposta automática ativa: "${connection.welcome_message.substring(0, 50)}..."
-                            </small>
+                        <div class="mt-3 p-3 bg-light rounded">
+                            <h6 class="text-success mb-2">
+                                <i class="bi bi-chat-dots me-2"></i> 
+                                Resposta Automática Ativa
+                            </h6>
+                            <p class="mb-0 ${isConnected ? 'fs-6' : 'small'}">
+                                "${connection.welcome_message}"
+                            </p>
+                        </div>
+                    ` : ''}
+                    ${isConnected ? `
+                        <div class="mt-3 p-3 bg-success bg-opacity-10 rounded border border-success">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="p-2">
+                                        <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                                        <p class="mb-0 mt-2 fw-bold">Conectado</p>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2">
+                                        <i class="bi bi-shield-check text-success" style="font-size: 2rem;"></i>
+                                        <p class="mb-0 mt-2 fw-bold">Seguro</p>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2">
+                                        <i class="bi bi-lightning text-success" style="font-size: 2rem;"></i>
+                                        <p class="mb-0 mt-2 fw-bold">Ativo</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     ` : ''}
                 </div>
@@ -627,6 +670,64 @@ async function deleteConnection(connectionId) {
         showAlert('Erro ao remover: ' + error.message, 'danger');
     }
 }
+
+// Enviar mensagem de teste
+async function sendTestMessage(connectionId) {
+    const connection = connections.find(c => c.id === connectionId);
+    if (!connection) {
+        showAlert('Conexão não encontrada', 'danger');
+        return;
+    }
+    
+    // Prompt para número de teste
+    const testNumber = prompt('Digite o número para enviar mensagem de teste (com código do país, ex: 5511999999999):');
+    if (!testNumber) return;
+    
+    try {
+        const response = await fetchWithAuth('/api/whatsapp/send-message', {
+            method: 'POST',
+            body: JSON.stringify({
+                connection_id: connectionId,
+                to_number: testNumber,
+                message: '🚀 Mensagem de teste do sistema de leads!\\n\\nSeu WhatsApp Business está conectado e funcionando perfeitamente.\\n\\n✅ Sistema ativo\\n📱 Recebendo leads\\n🔄 Distribuição automática'
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showAlert(`Mensagem de teste enviada com sucesso para ${testNumber}!`, 'success');
+        } else {
+            const error = await response.json();
+            showAlert('Erro ao enviar mensagem: ' + (error.detail || 'Erro desconhecido'), 'danger');
+        }
+    } catch (error) {
+        showAlert('Erro ao enviar mensagem: ' + error.message, 'danger');
+    }
+}
+
+// Melhorar feedback visual para conexões ativas
+function addConnectionAnimation() {
+    // Adicionar animação de pulso para conexões ativas
+    document.querySelectorAll('.card-lg').forEach(card => {
+        const statusBadge = card.querySelector('.badge.bg-success');
+        if (statusBadge) {
+            statusBadge.classList.add('pulse-success');
+        }
+    });
+}
+
+// Chamar animação após carregar conexões
+const originalRenderConnections = renderConnections;
+renderConnections = function() {
+    originalRenderConnections();
+    setTimeout(addConnectionAnimation, 100);
+};
+
+// Limpar timers quando modal for fechado
+document.getElementById('qrModal').addEventListener('hidden.bs.modal', function () {
+    stopQRRefreshTimer();
+    currentConnectionId = null;
+});
 
 // Função para mostrar alertas
 function showAlert(message, type) {

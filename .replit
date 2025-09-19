@@ -20,29 +20,17 @@ args = "Server"
 name = "Server"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "export SECRET_KEY=\"jBQePMBLEYVSYlQigq5bMprpxzzNs9XWdIS_HqbfYl0\" && export WHATSAPP_VERIFY_TOKEN=\"meu-token-secreto-12345\" && export ENVIRONMENT=\"production\" && uv run python main.py"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export MAYTAPI_PRODUCT_ID=\"${MAYTAPI_PRODUCT_ID}\" && export MAYTAPI_TOKEN=\"${MAYTAPI_TOKEN}\" && export SECRET_KEY=\"${SECRET_KEY}\" && export WHATSAPP_VERIFY_TOKEN=\"${WHATSAPP_VERIFY_TOKEN}\" && export ENVIRONMENT=\"production\" && uv run python main.py"
+waitForPort = 5000
 
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 38543
-externalPort = 3001
-
-[[ports]]
-localPort = 44165
-externalPort = 3002
-
-[[ports]]
-localPort = 45375
-externalPort = 3003
 
 [[ports]]
 localPort = 46255

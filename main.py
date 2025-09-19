@@ -289,93 +289,11 @@ async def whatsapp_webhook_verify(request: Request):
     
     raise HTTPException(status_code=400, detail="Parâmetros de verificação ausentes")
 
-# Webhook do WhatsApp Business - Recebimento de mensagens (POST)
+# Webhook principal para mensagens (usar apenas este)
 @app.post("/api/whatsapp-webhook")
-async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
-    """Recebe mensagens do WhatsApp Business e cria leads automaticamente"""
-    try:
-        # Obter dados do corpo da requisição
-        body = await request.json()
-        
-        # Processar formato do WhatsApp Business API
-        if "entry" in body:
-            # Formato padrão do Meta WhatsApp API
-            for entry in body.get("entry", []):
-                for change in entry.get("changes", []):
-                    if change.get("field") == "messages":
-                        value = change.get("value", {})
-                        
-                        # Extrair mensagens
-                        for message in value.get("messages", []):
-                            # Obter informações do contato
-                            contact = {}
-                            for contact_info in value.get("contacts", []):
-                                if contact_info.get("wa_id") == message.get("from"):
-                                    contact = contact_info
-                                    break
-                            
-                            # Criar lead
-                            lead_data = LeadCreate(
-                                contact_name=contact.get("profile", {}).get("name", f"Cliente {message.get('from', 'Desconhecido')}"),
-                                phone=message.get("from", ""),
-                                initial_message=message.get("text", {}).get("body", "Mensagem recebida via WhatsApp"),
-                                source="WhatsApp Business"
-                            )
-                            
-                            new_lead = create_lead(db, lead_data)
-                            
-                            # Distribuir automaticamente
-                            assigned_broker = distribute_lead(db, new_lead.id)
-                            
-                            if assigned_broker:
-                                # Notificar corretor via WebSocket
-                                await manager.send_personal_message(
-                                    json.dumps({
-                                        "type": "new_lead",
-                                        "lead": {
-                                            "id": new_lead.id,
-                                            "contact_name": new_lead.contact_name,
-                                            "phone": new_lead.phone,
-                                            "message": new_lead.initial_message
-                                        }
-                                    }),
-                                    assigned_broker.id
-                                )
-        
-        # Formato simples para testes
-        else:
-            lead_data = LeadCreate(
-                contact_name=body.get("contact_name", "Cliente Desconhecido"),
-                phone=body.get("phone", ""),
-                initial_message=body.get("message", "Mensagem recebida via WhatsApp"),
-                source="WhatsApp Business"
-            )
-        
-            new_lead = create_lead(db, lead_data)
-            
-            # Distribuir automaticamente
-            assigned_broker = distribute_lead(db, new_lead.id)
-            
-            if assigned_broker:
-                # Notificar corretor via WebSocket
-                await manager.send_personal_message(
-                    json.dumps({
-                        "type": "new_lead",
-                        "lead": {
-                            "id": new_lead.id,
-                            "contact_name": new_lead.contact_name,
-                            "phone": new_lead.phone,
-                            "message": new_lead.initial_message
-                        }
-                    }),
-                    assigned_broker.id
-                )
-        
-        return {"status": "success", "message": "Webhook processado com sucesso"}
-    
-    except Exception as e:
-        print(f"Erro no webhook WhatsApp: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erro ao processar webhook: {str(e)}")
+async def whatsapp_webhook_main(request: Request, db: Session = Depends(get_db)):
+    """Webhook principal - redireciona para o handler do Maytapi"""
+    return await maytapi_webhook(request, db)
 
 # Dashboard e estatísticas
 @app.get("/api/dashboard/stats", response_model=DashboardStats)
@@ -676,6 +594,26 @@ async def send_whatsapp_message(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao enviar mensagem: {str(e)}")
 
+@app.post("/api/whatsapp/send-message")
+async def send_test_message(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Enviar mensagem de teste"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    
+    try:
+        connection_id = int(data.get("connection_id"))
+        to_number = str(data.get("to_number"))
+        message = str(data.get("message"))
+        
+        message_data = WhatsAppMessageSend(to_number=to_number, message=message)
+        return await send_whatsapp_message(connection_id, message_data, db, current_user)
+    except (ValueError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=f"Dados inválidos: {str(e)}")
+
 # Webhook Maytapi para receber mensagens
 @app.post("/api/maytapi-webhook")
 async def maytapi_webhook(request: Request, db: Session = Depends(get_db)):
@@ -683,19 +621,45 @@ async def maytapi_webhook(request: Request, db: Session = Depends(get_db)):
     try:
         body = await request.json()
         
-        # Processar mensagem da Maytapi
-        if body.get("type") == "message":
+        # Log apenas tipo para debug sem vazar PII
+        if os.getenv("DEBUG") == "true":
+            print(f"Webhook tipo: {body.get('type', 'unknown')}")
+        
+        # Processar diferentes formatos do Maytapi
+        if body.get("type") in ["message", "text"]:
+            # Extrair dados da mensagem
             phone_id = body.get("phone_id")
-            from_number = body.get("user", {}).get("phone")
-            message = body.get("message", {}).get("text", "")
-            contact_name = body.get("user", {}).get("name", f"Contato {from_number}")
+            from_number = body.get("from") or body.get("user", {}).get("phone")
             
-            if phone_id and from_number and message:
+            # Extrair texto da mensagem
+            message_text = ""
+            if "text" in body:
+                if isinstance(body["text"], dict):
+                    message_text = body["text"].get("text", "Mensagem recebida")
+                else:
+                    message_text = str(body["text"])
+            elif "message" in body:
+                if isinstance(body["message"], dict):
+                    message_text = body["message"].get("text", "Mensagem recebida")
+                else:
+                    message_text = str(body["message"])
+            
+            contact_name = (
+                body.get("senderName") or 
+                body.get("user", {}).get("name") or 
+                f"Cliente {from_number or 'Desconhecido'}"
+            )
+            
+            # Ignorar mensagens próprias
+            if body.get("fromMe", False):
+                return {"status": "ignored", "message": "Mensagem própria ignorada"}
+            
+            if from_number and message_text:
                 # Criar lead automaticamente
                 lead_data = LeadCreate(
                     contact_name=contact_name,
                     phone=from_number,
-                    initial_message=message,
+                    initial_message=message_text,
                     source="WhatsApp Maytapi"
                 )
                 
@@ -719,14 +683,21 @@ async def maytapi_webhook(request: Request, db: Session = Depends(get_db)):
                         assigned_broker.id
                     )
                 
-                # Atualizar último acesso da conexão
-                update_whatsapp_connection_status(db, phone_id, "connected")
+                # Atualizar status da conexão se phone_id disponível
+                if phone_id:
+                    try:
+                        update_whatsapp_connection_status(db, phone_id, "connected")
+                    except:
+                        pass  # Não falhar se não conseguir atualizar status
+                
+                return {"status": "success", "lead_id": new_lead.id}
         
-        return {"status": "success"}
+        return {"status": "success", "message": "Webhook processado"}
     
     except Exception as e:
-        print(f"Erro no webhook Maytapi: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        if os.getenv("DEBUG") == "true":
+            print(f"Erro no webhook Maytapi: {str(e)}")
+        return {"status": "error", "message": "Erro interno"}
 
 # Função para autenticar WebSocket
 async def authenticate_websocket(token: str, db: Session) -> User:
