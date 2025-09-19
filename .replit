@@ -38,3 +38,7 @@ externalPort = 3000
 
 [agent]
 expertMode = true
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "export SECRET_KEY=\"jBQePMBLEYVSYlQigq5bMprpxzzNs9XWdIS_HqbfYl0\" && export WHATSAPP_VERIFY_TOKEN=\"meu-token-secreto-12345\" && uv run python main.py"]
