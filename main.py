@@ -486,12 +486,12 @@ async def create_whatsapp_connection_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Criar nova conexão de WhatsApp"""
+    """Criar nova conexão de WhatsApp ou usar conexão existente"""
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     
     try:
-        # Criar nova conexão via Maytapi
+        # Obter ou criar conexão via Maytapi
         result = await maytapi_client.create_phone_connection()
         
         if result.get("status") == "success":
@@ -499,25 +499,45 @@ async def create_whatsapp_connection_endpoint(
             if not phone_id:
                 raise HTTPException(status_code=500, detail="ID do telefone não retornado pela API")
             
-            # Salvar no banco de dados
-            connection = create_whatsapp_connection(
-                db, 
-                phone_id=phone_id,
-                auto_respond=connection_data.auto_respond,
-                welcome_message=connection_data.welcome_message
-            )
+            # Verificar se já existe uma conexão com este phone_id
+            existing_connection = get_whatsapp_connection_by_phone_id(db, phone_id)
             
-            # Configurar webhook se necessário
+            if existing_connection:
+                # Atualizar conexão existente com novas configurações
+                connection = update_whatsapp_connection(
+                    db, 
+                    existing_connection.id,
+                    auto_respond=connection_data.auto_respond,
+                    welcome_message=connection_data.welcome_message,
+                    status="connecting"
+                )
+            else:
+                # Criar nova conexão no banco de dados
+                connection = create_whatsapp_connection(
+                    db, 
+                    phone_id=phone_id,
+                    auto_respond=connection_data.auto_respond,
+                    welcome_message=connection_data.welcome_message
+                )
+            
+            # Configurar webhook
             base_url = str(request.base_url).rstrip('/')
-            webhook_url = f"{base_url}/api/maytapi-webhook"
+            webhook_url = f"{base_url}/api/whatsapp-webhook"
             webhook_result = await maytapi_client.set_webhook(phone_id, webhook_url)
             
             webhook_configured = webhook_result.get("status") == "success"
-            update_whatsapp_connection(db, connection.id, 
-                                     webhook_configured=webhook_configured,
-                                     status="connecting" if webhook_configured else "error")
             
-            return connection
+            # Atualizar status final da conexão
+            if connection:
+                final_connection = update_whatsapp_connection(
+                    db, 
+                    connection.id, 
+                    webhook_configured=webhook_configured,
+                    status="connecting" if webhook_configured else "error"
+                )
+                return final_connection if final_connection else connection
+            else:
+                raise HTTPException(status_code=500, detail="Erro ao criar ou atualizar conexão")
         else:
             raise HTTPException(status_code=500, detail=f"Erro ao criar conexão: {result.get('message', 'Erro desconhecido')}")
     
