@@ -5,14 +5,32 @@ channel = "stable-25_05"
 packages = ["cargo", "freetype", "glibcLocales", "libiconv", "libxcrypt", "rustc"]
 
 [workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Server"
+
+[[workflows.workflow]]
+name = "Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export SECRET_KEY=\"hwoFRTEYi_tVXzOpbfT50ebXgjI12n7UEux1CxdXRQI\" && export WHATSAPP_VERIFY_TOKEN=\"meu-token-secreto-12345\" && export MAYTAPI_PRODUCT_ID=\"optional\" && export MAYTAPI_TOKEN=\"optional\" && export ENVIRONMENT=\"development\" && uv run uvicorn main:app --host 0.0.0.0 --port 5000 --reload"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 46255
-externalPort = 3000
 
 [agent]
 expertMode = true
