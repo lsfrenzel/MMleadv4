@@ -98,20 +98,43 @@ class MaytapiClient:
                     headers=self.headers
                 )
                 response.raise_for_status()
-                data = response.json()
                 
-                # Converter formato da resposta Maytapi
-                if data.get("success"):
+                # Verificar o tipo de conteúdo da resposta
+                content_type = response.headers.get("content-type", "")
+                
+                if "image" in content_type:
+                    # Resposta é uma imagem binária - converter para base64
+                    import base64
+                    image_data = response.content
+                    base64_image = base64.b64encode(image_data).decode('utf-8')
+                    data_uri = f"data:{content_type};base64,{base64_image}"
+                    
                     return {
                         "status": "success",
-                        "screen": data.get("data", {}).get("screen"),
+                        "screen": data_uri,
                         "message": "QR Code obtido com sucesso"
                     }
                 else:
-                    return {
-                        "status": "error",
-                        "message": data.get("message", "Erro ao obter QR Code")
-                    }
+                    # Resposta é JSON
+                    try:
+                        data = response.json()
+                        if data.get("success"):
+                            return {
+                                "status": "success",
+                                "screen": data.get("data", {}).get("screen"),
+                                "message": "QR Code obtido com sucesso"
+                            }
+                        else:
+                            return {
+                                "status": "error",
+                                "message": data.get("message", "Erro ao obter QR Code")
+                            }
+                    except:
+                        # Se não conseguir fazer JSON, tentar como texto
+                        return {
+                            "status": "error",
+                            "message": f"Resposta inesperada da API: {response.text[:100]}"
+                        }
         except Exception as e:
             print(f"Erro ao obter QR Code para {phone_id}: {e}")
             return {"status": "error", "message": str(e)}
