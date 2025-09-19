@@ -2,7 +2,7 @@ modules = ["web", "python-3.11", "nodejs-20"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "glibcLocales", "libxcrypt"]
+packages = ["cargo", "freetype", "glibcLocales", "libiconv", "libxcrypt", "rustc"]
 
 [workflows]
 runButton = "Project"
@@ -20,25 +20,21 @@ args = "Server"
 name = "Server"
 author = "agent"
 
-[workflows.workflow.metadata]
-outputType = "webview"
-
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "export SECRET_KEY=\"jBQePMBLEYVSYlQigq5bMprpxzzNs9XWdIS_HqbfYl0\" && export WHATSAPP_VERIFY_TOKEN=\"meu-token-secreto-12345\" && uv run python main.py"
+args = "export SECRET_KEY=\"jBQePMBLEYVSYlQigq5bMprpxzzNs9XWdIS_HqbfYl0\" && export WHATSAPP_VERIFY_TOKEN=\"meu-token-secreto-12345\" && export ENVIRONMENT=\"production\" && uv run python main.py"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[ports]]
 localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 39167
+localPort = 44165
 externalPort = 3002
-
-[[ports]]
-localPort = 42425
-externalPort = 3001
 
 [[ports]]
 localPort = 46255

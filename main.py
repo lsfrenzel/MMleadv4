@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Request, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, Request, status, WebSocket, WebSocketDisconnect, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -708,11 +708,48 @@ async def maytapi_webhook(request: Request, db: Session = Depends(get_db)):
         print(f"Erro no webhook Maytapi: {str(e)}")
         return {"status": "error", "message": str(e)}
 
+# Função para autenticar WebSocket
+async def authenticate_websocket(token: str, db: Session) -> User:
+    """Autenticar usuário para conexão WebSocket"""
+    try:
+        from jose import jwt, JWTError
+        from auth import SECRET_KEY, ALGORITHM
+        
+        if not SECRET_KEY:
+            raise WebSocketDisconnect(code=1008, reason="Configuração inválida")
+            
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if email is None or not isinstance(email, str):
+            raise WebSocketDisconnect(code=1008, reason="Token inválido")
+    except Exception:
+        raise WebSocketDisconnect(code=1008, reason="Token inválido")
+    
+    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    if user is None:
+        raise WebSocketDisconnect(code=1008, reason="Usuário não encontrado")
+    
+    return user
+
 # WebSocket para notificações em tempo real
 @app.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: int, db: Session = Depends(get_db)):
-    await manager.connect(websocket, user_id)
+async def websocket_endpoint(
+    websocket: WebSocket, 
+    user_id: int, 
+    token: str = Query(...),
+    db: Session = Depends(get_db)
+):
+    # Autenticar usuário antes de aceitar conexão
     try:
+        authenticated_user = await authenticate_websocket(token, db)
+        
+        # Verificar se o user_id corresponde ao usuário autenticado
+        if authenticated_user.id != user_id:
+            await websocket.close(code=1008, reason="ID de usuário inválido")
+            return
+            
+        await manager.connect(websocket, user_id)
+        
         while True:
             data = await websocket.receive_text()
             # Echo mensagens de heartbeat para manter conexão ativa
@@ -720,12 +757,19 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int, db: Session = D
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(websocket, user_id)
+    except Exception as e:
+        await websocket.close(code=1011, reason="Erro de autenticação")
 
 if __name__ == "__main__":
+    import os
+    
+    # Para produção, desabilitar reload
+    is_development = os.getenv("ENVIRONMENT", "development") == "development"
+    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=5000,
-        reload=True,
+        reload=is_development,
         log_level="info"
     )

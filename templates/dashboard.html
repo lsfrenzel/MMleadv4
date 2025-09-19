@@ -160,10 +160,11 @@ let ws = null;
 // Conectar WebSocket
 function connectWebSocket() {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (!user.id) return;
+    const token = localStorage.getItem('token');
+    if (!user.id || !token) return;
     
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/${user.id}`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/${user.id}?token=${token}`;
     
     ws = new WebSocket(wsUrl);
     
