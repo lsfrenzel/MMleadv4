@@ -42,4 +42,4 @@ integrations = ["python_database:1.0.0"]
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["uv", "run", "python", "main.py"]
+run = ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
