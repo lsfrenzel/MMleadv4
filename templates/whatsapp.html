@@ -46,26 +46,74 @@
 
 <!-- Modal para QR Code -->
 <div class="modal fade" id="qrModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Conectar WhatsApp</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-whatsapp me-2"></i>
+                    Conectar WhatsApp
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body text-center">
-                <div id="qrContainer">
-                    <div class="spinner-border text-success" role="status">
-                        <span class="visually-hidden">Gerando QR Code...</span>
+            <div class="modal-body text-center py-4">
+                <div class="row">
+                    <div class="col-12 col-md-8 mx-auto">
+                        <div id="qrContainer" class="p-4 border rounded bg-light">
+                            <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+                                <span class="visually-hidden">Gerando QR Code...</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Status da conexão -->
+                        <div id="connectionStatus" class="mt-3">
+                            <div class="alert alert-info d-flex align-items-center">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <span>Aguardando QR Code...</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Instruções detalhadas -->
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="bi bi-phone me-2"></i>
+                                    Como conectar:
+                                </h6>
+                                <ol class="text-start small">
+                                    <li>Abra o WhatsApp no seu celular</li>
+                                    <li>Toque em <strong>Menu</strong> (⋮) → <strong>Dispositivos conectados</strong></li>
+                                    <li>Toque em <strong>Conectar um dispositivo</strong></li>
+                                    <li>Aponte a câmera para o QR Code acima</li>
+                                    <li>Aguarde a confirmação da conexão</li>
+                                </ol>
+                                <div class="text-center">
+                                    <small class="text-muted">
+                                        <i class="bi bi-shield-check me-1"></i>
+                                        Conexão segura e criptografada
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Timer de atualização -->
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-clock me-1"></i>
+                                QR Code atualiza automaticamente em <span id="qrTimer">30</span>s
+                            </small>
+                        </div>
                     </div>
-                </div>
-                <div class="mt-3">
-                    <p class="text-muted">Escaneie o QR Code com seu WhatsApp para conectar</p>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i> Fechar
+                </button>
                 <button type="button" class="btn btn-success" onclick="refreshQR()" id="refreshQRBtn">
                     <i class="bi bi-arrow-clockwise"></i> Atualizar QR
+                </button>
+                <button type="button" class="btn btn-info" onclick="checkConnectionStatus()" id="checkStatusBtn">
+                    <i class="bi bi-wifi"></i> Verificar Status
                 </button>
             </div>
         </div>
@@ -112,6 +160,9 @@
 <script>
 let currentConnectionId = null;
 let connections = [];
+let qrRefreshTimer = null;
+let qrCountdownTimer = null;
+let qrRefreshInterval = 30; // segundos
 
 // Carregar conexões ao inicializar a página
 document.addEventListener('DOMContentLoaded', function() {
@@ -265,9 +316,22 @@ async function showQRCode(connectionId) {
 // Carregar QR Code
 async function loadQRCode(connectionId) {
     const container = document.getElementById('qrContainer');
+    const statusContainer = document.getElementById('connectionStatus');
+    
+    // Mostrar loading
     container.innerHTML = `
-        <div class="spinner-border text-success" role="status">
-            <span class="visually-hidden">Gerando QR Code...</span>
+        <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 300px;">
+            <div class="spinner-border text-success mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Gerando QR Code...</span>
+            </div>
+            <p class="text-muted">Obtendo QR Code...</p>
+        </div>
+    `;
+    
+    statusContainer.innerHTML = `
+        <div class="alert alert-info d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2"></div>
+            <span>Conectando com o Maytapi...</span>
         </div>
     `;
 
@@ -278,29 +342,85 @@ async function loadQRCode(connectionId) {
             const data = await response.json();
             
             if (data.qr_code) {
-                container.innerHTML = `<img src="${data.qr_code}" alt="QR Code" class="img-fluid" style="max-width: 300px;">`;
+                container.innerHTML = `
+                    <div class="d-flex flex-column align-items-center">
+                        <div class="border border-success rounded p-3 bg-white shadow">
+                            <img src="${data.qr_code}" alt="QR Code WhatsApp" class="img-fluid" style="max-width: 350px; width: 100%;">
+                        </div>
+                        <div class="mt-2">
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle me-1"></i>
+                                QR Code ativo
+                            </span>
+                        </div>
+                    </div>
+                `;
+                
+                statusContainer.innerHTML = `
+                    <div class="alert alert-success d-flex align-items-center">
+                        <i class="bi bi-qr-code me-2"></i>
+                        <span>QR Code gerado! Escaneie com seu WhatsApp.</span>
+                    </div>
+                `;
+                
+                // Iniciar timer de atualização automática
+                startQRRefreshTimer(connectionId);
+                
             } else {
                 container.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        QR Code não disponível. Status: ${data.status}
+                    <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 300px;">
+                        <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+                        <h6 class="mt-3">QR Code não disponível</h6>
+                        <p class="text-muted">Status: ${data.status}</p>
+                        <button class="btn btn-primary btn-sm" onclick="refreshQR()">
+                            <i class="bi bi-arrow-clockwise"></i> Tentar novamente
+                        </button>
+                    </div>
+                `;
+                
+                statusContainer.innerHTML = `
+                    <div class="alert alert-warning d-flex align-items-center">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <span>QR Code não disponível. Status: ${data.status}</span>
                     </div>
                 `;
             }
         } else {
             const error = await response.json();
             container.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="bi bi-x-circle"></i>
-                    Erro: ${error.detail || 'Não foi possível obter o QR Code'}
+                <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 300px;">
+                    <i class="bi bi-x-circle text-danger" style="font-size: 3rem;"></i>
+                    <h6 class="mt-3 text-danger">Erro ao gerar QR Code</h6>
+                    <p class="text-muted text-center">${error.detail || 'Não foi possível obter o QR Code'}</p>
+                    <button class="btn btn-danger btn-sm" onclick="refreshQR()">
+                        <i class="bi bi-arrow-clockwise"></i> Tentar novamente
+                    </button>
+                </div>
+            `;
+            
+            statusContainer.innerHTML = `
+                <div class="alert alert-danger d-flex align-items-center">
+                    <i class="bi bi-x-circle me-2"></i>
+                    <span>Erro: ${error.detail || 'Não foi possível obter o QR Code'}</span>
                 </div>
             `;
         }
     } catch (error) {
         container.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="bi bi-x-circle"></i>
-                Erro: ${error.message}
+            <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 300px;">
+                <i class="bi bi-wifi-off text-danger" style="font-size: 3rem;"></i>
+                <h6 class="mt-3 text-danger">Erro de conexão</h6>
+                <p class="text-muted text-center">${error.message}</p>
+                <button class="btn btn-outline-danger btn-sm" onclick="refreshQR()">
+                    <i class="bi bi-arrow-clockwise"></i> Tentar novamente
+                </button>
+            </div>
+        `;
+        
+        statusContainer.innerHTML = `
+            <div class="alert alert-danger d-flex align-items-center">
+                <i class="bi bi-wifi-off me-2"></i>
+                <span>Erro de conexão: ${error.message}</span>
             </div>
         `;
     }
@@ -309,9 +429,118 @@ async function loadQRCode(connectionId) {
 // Atualizar QR Code
 function refreshQR() {
     if (currentConnectionId) {
+        stopQRRefreshTimer();
         loadQRCode(currentConnectionId);
     }
 }
+
+// Iniciar timer de atualização automática do QR
+function startQRRefreshTimer(connectionId) {
+    // Limpar timer anterior se existir
+    stopQRRefreshTimer();
+    
+    let countdown = qrRefreshInterval;
+    
+    // Atualizar contador na tela
+    qrCountdownTimer = setInterval(() => {
+        countdown--;
+        const timerElement = document.getElementById('qrTimer');
+        if (timerElement) {
+            timerElement.textContent = countdown;
+            
+            if (countdown <= 5) {
+                timerElement.parentElement.classList.add('text-warning');
+            }
+        }
+        
+        if (countdown <= 0) {
+            refreshQR();
+        }
+    }, 1000);
+    
+    // Timer principal para atualizar QR
+    qrRefreshTimer = setTimeout(() => {
+        if (currentConnectionId === connectionId) {
+            loadQRCode(connectionId);
+        }
+    }, qrRefreshInterval * 1000);
+}
+
+// Parar timer de atualização
+function stopQRRefreshTimer() {
+    if (qrRefreshTimer) {
+        clearTimeout(qrRefreshTimer);
+        qrRefreshTimer = null;
+    }
+    
+    if (qrCountdownTimer) {
+        clearInterval(qrCountdownTimer);
+        qrCountdownTimer = null;
+    }
+    
+    const timerElement = document.getElementById('qrTimer');
+    if (timerElement) {
+        timerElement.textContent = qrRefreshInterval;
+        timerElement.parentElement.classList.remove('text-warning');
+    }
+}
+
+// Verificar status da conexão em tempo real
+async function checkConnectionStatus() {
+    if (!currentConnectionId) return;
+    
+    const statusContainer = document.getElementById('connectionStatus');
+    const checkBtn = document.getElementById('checkStatusBtn');
+    
+    // Mostrar loading no botão
+    const originalBtnContent = checkBtn.innerHTML;
+    checkBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Verificando...';
+    checkBtn.disabled = true;
+    
+    try {
+        const response = await fetchWithAuth(`/api/whatsapp/connections/${currentConnectionId}/status`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            const statusColor = getStatusColor(data.status);
+            const statusText = getStatusText(data.status);
+            
+            statusContainer.innerHTML = `
+                <div class="alert alert-${statusColor} d-flex align-items-center">
+                    <i class="bi bi-${data.status === 'connected' ? 'wifi' : 'wifi-off'} me-2"></i>
+                    <span>Status: ${statusText}</span>
+                </div>
+            `;
+            
+            // Se conectado, parar o timer e fechar modal
+            if (data.status === 'connected') {
+                stopQRRefreshTimer();
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('qrModal')).hide();
+                    showAlert('WhatsApp conectado com sucesso!', 'success');
+                    loadConnections();
+                }, 2000);
+            }
+        }
+    } catch (error) {
+        statusContainer.innerHTML = `
+            <div class="alert alert-danger d-flex align-items-center">
+                <i class="bi bi-x-circle me-2"></i>
+                <span>Erro ao verificar status: ${error.message}</span>
+            </div>
+        `;
+    } finally {
+        // Restaurar botão
+        checkBtn.innerHTML = originalBtnContent;
+        checkBtn.disabled = false;
+    }
+}
+
+// Limpar timers quando modal for fechado
+document.getElementById('qrModal').addEventListener('hidden.bs.modal', function () {
+    stopQRRefreshTimer();
+    currentConnectionId = null;
+});
 
 // Verificar status da conexão
 async function checkStatus(connectionId) {
