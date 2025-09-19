@@ -482,6 +482,7 @@ async def get_whatsapp_connections_endpoint(
 @app.post("/api/whatsapp/connections", response_model=WhatsAppConnectionResponse)
 async def create_whatsapp_connection_endpoint(
     connection_data: WhatsAppConnectionCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
