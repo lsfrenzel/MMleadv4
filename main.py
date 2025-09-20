@@ -126,8 +126,11 @@ async def whatsapp_page(request: Request):
     return templates.TemplateResponse("whatsapp.html", {"request": request})
 
 @app.get("/whatsapp/chat", response_class=HTMLResponse)
-async def whatsapp_chat_page(request: Request):
-    return templates.TemplateResponse("whatsapp_chat.html", {"request": request})
+async def whatsapp_chat_page(request: Request, connection_id: int = Query(...)):
+    return templates.TemplateResponse("whatsapp_chat.html", {
+        "request": request,
+        "connection_id": connection_id
+    })
 
 # Rotas de autenticação
 @app.post("/api/register", response_model=UserResponse)
