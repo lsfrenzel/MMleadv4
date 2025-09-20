@@ -59,8 +59,7 @@
                 <div class="row">
                     <div class="col-12 col-lg-8 mx-auto">
                         <div id="qrContainer" class="p-5 border border-success rounded-4 bg-light shadow-sm position-relative" 
-                             style="min-height: 450px; cursor: pointer;" 
-                             onclick="enlargeQRCode()">
+                             style="min-height: 450px;">
                             <div class="spinner-border text-success" role="status" style="width: 4rem; height: 4rem;">
                                 <span class="visually-hidden">Gerando QR Code...</span>
                             </div>
@@ -794,6 +793,53 @@ document.getElementById('settingsForm').addEventListener('submit', async functio
         showAlert('Erro ao salvar: ' + error.message, 'danger');
     }
 });
+
+// Função para ampliar QR Code
+function enlargeQRCode(qrCodeUrl) {
+    if (!qrCodeUrl) {
+        // Se não tem URL, tentar obter do elemento atual
+        const qrImg = document.querySelector('#qrContainer img');
+        if (qrImg) {
+            qrCodeUrl = qrImg.src;
+        } else {
+            showAlert('QR Code não disponível para ampliar', 'warning');
+            return;
+        }
+    }
+    
+    // Criar modal para QR ampliado
+    const enlargedModal = document.createElement('div');
+    enlargedModal.className = 'modal fade';
+    enlargedModal.id = 'enlargedQRModal';
+    enlargedModal.innerHTML = `
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-qr-code me-2"></i>
+                        QR Code Ampliado
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <img src="${qrCodeUrl}" alt="QR Code Ampliado" class="img-fluid" style="max-width: 100%; max-height: 500px;">
+                    <div class="mt-3">
+                        <p class="text-muted">Escaneie este QR Code com seu WhatsApp</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(enlargedModal);
+    const modal = new bootstrap.Modal(enlargedModal);
+    modal.show();
+    
+    // Remover modal após fechar
+    enlargedModal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(enlargedModal);
+    });
+}
 
 // Deletar conexão
 async function deleteConnection(connectionId) {
