@@ -666,47 +666,47 @@ function stopStatusMonitoring() {
     }
 }
 
-// Função para abrir o chat do WhatsApp
+// Função para abrir o WhatsApp Web oficial
 function openWhatsAppChat(connectionId, isAutoRedirect = false) {
-    const chatUrl = `/whatsapp/chat?connection_id=${connectionId}`;
+    const whatsappWebUrl = 'https://web.whatsapp.com/';
     
     if (isAutoRedirect) {
         // Redirecionamento automático - mostrar mensagem de sucesso
-        showAlert('WhatsApp conectado com sucesso! Abrindo interface de chat...', 'success');
+        showAlert('WhatsApp conectado com sucesso! Abrindo WhatsApp Web...', 'success');
         
-        // Tentar abrir em nova janela, se falhar, redirecionar na mesma janela
+        // Tentar abrir em nova janela
         const chatWindow = window.open(
-            chatUrl, 
-            `whatsapp_chat_${connectionId}`,
-            'width=1400,height=900,scrollbars=yes,resizable=yes,status=yes,toolbar=no,menubar=no,location=no'
+            whatsappWebUrl, 
+            `whatsapp_web_${connectionId}`,
+            'width=1400,height=900,scrollbars=yes,resizable=yes,status=yes,toolbar=yes,menubar=no,location=yes'
         );
         
         if (chatWindow) {
             chatWindow.focus();
-            showAlert('Interface de chat aberta em nova janela! Você pode continuar usando esta tela para gerenciar conexões.', 'info');
+            showAlert('WhatsApp Web aberto em nova janela! Sua conexão já está ativa.', 'info');
         } else {
             // Fallback: redirecionar na mesma janela após 2 segundos
-            showAlert('Por favor, permita pop-ups para uma melhor experiência. Redirecionando...', 'warning');
+            showAlert('Por favor, permita pop-ups para uma melhor experiência. Redirecionando para WhatsApp Web...', 'warning');
             setTimeout(() => {
-                window.location.href = chatUrl;
+                window.open(whatsappWebUrl, '_blank');
             }, 2000);
         }
     } else {
-        // Abertura manual do chat
+        // Abertura manual do WhatsApp Web
         const chatWindow = window.open(
-            chatUrl, 
-            `whatsapp_chat_${connectionId}`,
-            'width=1400,height=900,scrollbars=yes,resizable=yes,status=yes,toolbar=no,menubar=no,location=no'
+            whatsappWebUrl, 
+            `whatsapp_web_${connectionId}`,
+            'width=1400,height=900,scrollbars=yes,resizable=yes,status=yes,toolbar=yes,menubar=no,location=yes'
         );
         
         if (chatWindow) {
             chatWindow.focus();
-            showAlert('Interface de chat aberta!', 'success');
+            showAlert('WhatsApp Web aberto! Sua conexão já está ativa e pronta para uso.', 'success');
         } else {
-            showAlert('Por favor, permita pop-ups ou clique no link abaixo', 'warning');
+            showAlert('Por favor, permita pop-ups ou clique no link abaixo para abrir o WhatsApp Web', 'warning');
             // Oferecer link direto
             setTimeout(() => {
-                showAlert(`<a href="${chatUrl}" target="_blank" class="btn btn-success btn-sm">Clique aqui para abrir o chat</a>`, 'info');
+                showAlert(`<a href="${whatsappWebUrl}" target="_blank" class="btn btn-success btn-sm"><i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp Web</a>`, 'info');
             }, 1000);
         }
     }
