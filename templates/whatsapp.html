@@ -99,11 +99,26 @@
                             </div>
                         </div>
                         
-                        <!-- Timer de atualização -->
+                        <!-- Timer de atualização e opção manual -->
                         <div class="mt-4 p-3 bg-warning bg-opacity-10 rounded border border-warning">
                             <div class="d-flex align-items-center justify-content-center">
                                 <i class="bi bi-clock me-2 text-warning"></i>
                                 <span class="fw-bold">QR Code atualiza automaticamente em <span id="qrTimer" class="text-warning">30</span>s</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Opção manual para casos de erro -->
+                        <div class="mt-4 p-3 bg-info bg-opacity-10 rounded border border-info">
+                            <h6 class="text-info mb-2">
+                                <i class="bi bi-lightbulb me-2"></i>
+                                Já escaneou o QR Code?
+                            </h6>
+                            <p class="mb-3 small text-muted">Se você já conectou seu WhatsApp mas a tela não redirecionou automaticamente:</p>
+                            <div class="text-center">
+                                <button class="btn btn-info" onclick="openWhatsAppChat(currentConnectionId)">
+                                    <i class="bi bi-chat-dots-fill me-2"></i>
+                                    Abrir Interface do Chat
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -248,10 +263,10 @@ function renderConnections() {
                                         <i class="bi bi-qr-code me-2"></i> ${isConnected ? 'Reconectar QR' : 'QR Code'}
                                     </button>` : ''
                                 }
+                                <button class="btn btn-primary ${buttonSize} fw-bold" onclick="openWhatsAppChat(${connection.id})" style="${isConnected ? 'padding: 12px 24px;' : 'padding: 8px 16px;'}">
+                                    <i class="bi bi-chat-dots-fill me-2"></i> ${isConnected ? 'Abrir Chat' : 'Tentar Chat'}
+                                </button>
                                 ${isConnected ? `
-                                    <button class="btn btn-success ${buttonSize} fw-bold" onclick="openWhatsAppChat(${connection.id})" style="padding: 12px 24px;">
-                                        <i class="bi bi-chat-dots-fill me-2"></i> Abrir Chat
-                                    </button>
                                     <button class="btn btn-outline-success ${buttonSize} fw-bold" onclick="sendTestMessage(${connection.id})" style="padding: 10px 20px;">
                                         <i class="bi bi-chat-text me-2"></i> Teste
                                     </button>
@@ -563,12 +578,14 @@ function startStatusMonitoring(connectionId) {
     // Parar qualquer monitoramento anterior
     stopStatusMonitoring();
     
-    // Verificar status a cada 5 segundos
+    // Verificar status com intervalo mais longo e tolerância a erros
+    let consecutiveErrors = 0;
     statusMonitoringTimer = setInterval(async () => {
         try {
             const response = await fetchWithAuth(`/api/whatsapp/connections/${connectionId}/status`);
             if (response.ok) {
                 const data = await response.json();
+                consecutiveErrors = 0; // Reset contador de erros
                 
                 // Se conectado, redirecionar automaticamente
                 if (data.status === 'connected') {
@@ -593,11 +610,53 @@ function startStatusMonitoring(connectionId) {
                         loadConnections();
                     }, 2000);
                 }
+            } else {
+                consecutiveErrors++;
+                console.log('Erro de status (tentativa ' + consecutiveErrors + ')');
+                
+                // Se muitos erros consecutivos, parar monitoramento e mostrar opção manual
+                if (consecutiveErrors >= 3) {
+                    stopStatusMonitoring();
+                    const statusContainer = document.getElementById('connectionStatus');
+                    if (statusContainer) {
+                        statusContainer.innerHTML = `
+                            <div class="alert alert-warning d-flex align-items-center">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <span>Não foi possível verificar o status automaticamente. Após escanear o QR Code, </span>
+                                <button class="btn btn-warning btn-sm ms-2" onclick="openWhatsAppChat(${connectionId})">
+                                    <i class="bi bi-chat-dots me-1"></i> Clique aqui para acessar o chat
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
             }
         } catch (error) {
-            console.log('Erro ao verificar status:', error);
+            consecutiveErrors++;
+            console.log('Erro ao verificar status (tentativa ' + consecutiveErrors + '):', error);
+            
+            // Se muitos erros consecutivos, parar e mostrar opção manual
+            if (consecutiveErrors >= 3) {
+                stopStatusMonitoring();
+                const statusContainer = document.getElementById('connectionStatus');
+                if (statusContainer) {
+                    statusContainer.innerHTML = `
+                        <div class="alert alert-info d-flex align-items-center">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <div class="flex-grow-1">
+                                <strong>Modo Manual:</strong> Após escanear o QR Code com seu WhatsApp, clique no botão abaixo para acessar o chat:
+                            </div>
+                        </div>
+                        <div class="text-center mt-2">
+                            <button class="btn btn-success btn-lg" onclick="openWhatsAppChat(${connectionId})">
+                                <i class="bi bi-chat-dots-fill me-2"></i> Abrir Interface do WhatsApp
+                            </button>
+                        </div>
+                    `;
+                }
+            }
         }
-    }, 5000); // Verificar a cada 5 segundos
+    }, 10000); // Verificar a cada 10 segundos (menos agressivo)
 }
 
 function stopStatusMonitoring() {
