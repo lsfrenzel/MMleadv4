@@ -81,7 +81,23 @@ class MaytapiClient:
                     headers=self.headers
                 )
                 response.raise_for_status()
-                return response.json()
+                data = response.json()
+                
+                # Verificar se a resposta tem formato esperado
+                if isinstance(data, dict):
+                    return data
+                else:
+                    # Fallback: assumir que está idle se response é válido
+                    return {"status": "idle", "message": "Status verificado"}
+                    
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                # Endpoint não existe ou phone_id inválido - retornar erro explícito
+                print(f"Endpoint status não encontrado para {phone_id} - API pode estar indisponível")
+                return {"status": "error", "message": "Endpoint de status não encontrado - verifique se o phone_id é válido"}
+            else:
+                print(f"Erro HTTP {e.response.status_code} ao verificar status do telefone {phone_id}")
+                return {"status": "error", "message": f"Erro HTTP {e.response.status_code}"}
         except Exception as e:
             print(f"Erro ao verificar status do telefone {phone_id}: {e}")
             return {"status": "error", "message": str(e)}
@@ -164,6 +180,19 @@ class MaytapiClient:
                         "status": "error", 
                         "message": data.get("message", "Erro ao obter conversas")
                     }
+                    
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                # Endpoint não existe - retornar lista vazia
+                print(f"Endpoint getChats não encontrado para {phone_id}, retornando lista vazia")
+                return {
+                    "status": "success",
+                    "conversations": [],
+                    "message": "Nenhuma conversa disponível"
+                }
+            else:
+                print(f"Erro HTTP {e.response.status_code} ao obter conversas")
+                return {"status": "error", "message": f"Erro HTTP {e.response.status_code}"}
         except Exception as e:
             print(f"Erro ao obter conversas para {phone_id}: {e}")
             return {"status": "error", "message": str(e)}
@@ -305,6 +334,15 @@ class MaytapiClient:
                 )
                 response.raise_for_status()
                 return response.json()
+                
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                # Endpoint não existe - este é um problema crítico para mensagens em tempo real
+                print(f"AVISO: Endpoint setWebhook não encontrado para {phone_id} - mensagens em tempo real podem não funcionar")
+                return {"status": "warning", "message": "Webhook não configurado - mensagens podem não chegar em tempo real"}
+            else:
+                print(f"Erro HTTP {e.response.status_code} ao configurar webhook")
+                return {"status": "error", "message": f"Erro HTTP {e.response.status_code}"}
         except Exception as e:
             print(f"Erro ao configurar webhook: {e}")
             return {"status": "error", "message": str(e)}

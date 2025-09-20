@@ -602,9 +602,16 @@ async function sendMessage() {
 // Conectar WebSocket para mensagens em tempo real
 function connectWebSocket() {
     try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
         const token = localStorage.getItem('token');
+        
+        if (!user.id || !token) {
+            console.log('User ID ou token não disponível para WebSocket');
+            return;
+        }
+        
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${wsProtocol}//${window.location.host}/ws/${token}`;
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/${user.id}?token=${token}`;
         
         websocket = new WebSocket(wsUrl);
         
