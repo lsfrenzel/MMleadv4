@@ -32,10 +32,14 @@ outputType = "webview"
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 36249
+externalPort = 3000
+
 [agent]
 expertMode = true
 integrations = ["python_database:1.0.0"]
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
+run = ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port"]
