@@ -360,22 +360,79 @@ async function checkConnectionStatus() {
 
 // Carregar lista de conversas
 async function loadConversations() {
+    // Mostrar indicador de carregamento
+    document.getElementById('conversationsList').innerHTML = `
+        <div class="text-center p-4">
+            <div class="spinner-border text-success mb-3" role="status">
+                <span class="visually-hidden">Sincronizando conversas...</span>
+            </div>
+            <p class="text-muted">Carregando suas conversas do WhatsApp...</p>
+        </div>
+    `;
+    
+    try {
+        // Primeiro, tentar sincronizar conversas reais do WhatsApp
+        const syncResponse = await fetchWithAuth(`/api/whatsapp/connections/${currentConnectionId}/sync-conversations`, {
+            method: 'POST'
+        });
+        
+        if (syncResponse.ok) {
+            const syncData = await syncResponse.json();
+            conversations = syncData.conversations || [];
+            
+            // Mostrar mensagem de sucesso da sincronização
+            if (syncData.status === "success") {
+                showAlert(`✅ ${syncData.synced_count} conversas do WhatsApp sincronizadas!`, 'success');
+            } else if (syncData.status === "fallback") {
+                showAlert(`⚠️ ${syncData.message}`, 'warning');
+            }
+            
+            renderConversations();
+        } else {
+            // Se sincronização falhar, tentar carregar conversas locais
+            console.log('Sincronização falhou, carregando conversas locais...');
+            await loadLocalConversations();
+        }
+    } catch (error) {
+        console.error('Erro na sincronização, tentando carregar conversas locais:', error);
+        await loadLocalConversations();
+    }
+}
+
+// Carregar conversas locais (fallback)
+async function loadLocalConversations() {
     try {
         const response = await fetchWithAuth(`/api/whatsapp/connections/${currentConnectionId}/conversations`);
         
         if (response.ok) {
             conversations = await response.json();
             renderConversations();
+            
+            if (conversations.length === 0) {
+                showAlert('💡 Nenhuma conversa encontrada. Envie uma mensagem via WhatsApp para começar!', 'info');
+            }
         } else {
             document.getElementById('conversationsList').innerHTML = `
                 <div class="text-center p-4 text-muted">
                     <i class="bi bi-chat-x" style="font-size: 3rem;"></i>
                     <p class="mt-2">Erro ao carregar conversas</p>
+                    <button class="btn btn-outline-success btn-sm mt-2" onclick="loadConversations()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Tentar Novamente
+                    </button>
                 </div>
             `;
         }
     } catch (error) {
-        console.error('Erro ao carregar conversas:', error);
+        console.error('Erro ao carregar conversas locais:', error);
+        document.getElementById('conversationsList').innerHTML = `
+            <div class="text-center p-4 text-muted">
+                <i class="bi bi-wifi-off" style="font-size: 3rem;"></i>
+                <p class="mt-2">Erro de conexão</p>
+                <button class="btn btn-outline-primary btn-sm mt-2" onclick="loadConversations()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Tentar Novamente
+                </button>
+            </div>
+        `;
     }
 }
 

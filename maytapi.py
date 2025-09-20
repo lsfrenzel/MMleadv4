@@ -139,6 +139,68 @@ class MaytapiClient:
             print(f"Erro ao obter QR Code para {phone_id}: {e}")
             return {"status": "error", "message": str(e)}
     
+    async def get_conversations(self, phone_id: str) -> Dict:
+        """Obter lista de conversas/chats do WhatsApp"""
+        if not self._ensure_initialized():
+            return {"status": "error", "message": "Credenciais Maytapi não configuradas"}
+            
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/{self.product_id}/{phone_id}/getChats",
+                    headers=self.headers
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("success"):
+                    return {
+                        "status": "success",
+                        "conversations": data.get("data", []),
+                        "message": "Conversas obtidas com sucesso"
+                    }
+                else:
+                    return {
+                        "status": "error", 
+                        "message": data.get("message", "Erro ao obter conversas")
+                    }
+        except Exception as e:
+            print(f"Erro ao obter conversas para {phone_id}: {e}")
+            return {"status": "error", "message": str(e)}
+    
+    async def get_chat_messages(self, phone_id: str, chat_id: str, limit: int = 50) -> Dict:
+        """Obter mensagens de um chat específico"""
+        if not self._ensure_initialized():
+            return {"status": "error", "message": "Credenciais Maytapi não configuradas"}
+            
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/{self.product_id}/{phone_id}/getChatMessages",
+                    headers=self.headers,
+                    params={
+                        "chat_id": chat_id,
+                        "limit": limit
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("success"):
+                    return {
+                        "status": "success",
+                        "messages": data.get("data", []),
+                        "message": "Mensagens obtidas com sucesso"
+                    }
+                else:
+                    return {
+                        "status": "error",
+                        "message": data.get("message", "Erro ao obter mensagens")
+                    }
+        except Exception as e:
+            print(f"Erro ao obter mensagens do chat {chat_id} para {phone_id}: {e}")
+            return {"status": "error", "message": str(e)}
+    
     async def send_message(self, phone_id: str, to_number: str, message: str) -> Dict:
         """Enviar mensagem via WhatsApp"""
         if not self._ensure_initialized():
