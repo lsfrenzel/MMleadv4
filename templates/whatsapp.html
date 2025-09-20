@@ -250,8 +250,11 @@ function renderConnections() {
                                     </button>` : ''
                                 }
                                 ${isConnected ? `
-                                    <button class="btn btn-outline-success ${buttonSize} fw-bold" onclick="sendTestMessage(${connection.id})" style="padding: 12px 24px;">
-                                        <i class="bi bi-chat-text me-2"></i> Enviar Teste
+                                    <button class="btn btn-success ${buttonSize} fw-bold" onclick="openWhatsAppChat(${connection.id})" style="padding: 12px 24px;">
+                                        <i class="bi bi-chat-dots-fill me-2"></i> Abrir Chat
+                                    </button>
+                                    <button class="btn btn-outline-success ${buttonSize} fw-bold" onclick="sendTestMessage(${connection.id})" style="padding: 10px 20px;">
+                                        <i class="bi bi-chat-text me-2"></i> Teste
                                     </button>
                                 ` : ''}
                                 <button class="btn btn-info ${buttonSize}" onclick="checkStatus(${connection.id})" style="${isConnected ? 'padding: 10px 20px;' : ''}">
@@ -432,6 +435,9 @@ async function loadQRCode(connectionId) {
                 // Iniciar timer de atualização automática
                 startQRRefreshTimer(connectionId);
                 
+                // Iniciar verificação automática de status
+                startStatusMonitoring(connectionId);
+                
             } else {
                 container.innerHTML = `
                     <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 300px;">
@@ -551,6 +557,103 @@ function stopQRRefreshTimer() {
     }
 }
 
+// Monitoramento automático de status da conexão
+let statusMonitoringTimer = null;
+
+function startStatusMonitoring(connectionId) {
+    // Parar qualquer monitoramento anterior
+    stopStatusMonitoring();
+    
+    // Verificar status a cada 5 segundos
+    statusMonitoringTimer = setInterval(async () => {
+        try {
+            const response = await fetchWithAuth(`/api/whatsapp/connections/${connectionId}/status`);
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Se conectado, redirecionar automaticamente
+                if (data.status === 'connected') {
+                    stopStatusMonitoring();
+                    stopQRRefreshTimer();
+                    
+                    // Atualizar status na tela
+                    const statusContainer = document.getElementById('connectionStatus');
+                    if (statusContainer) {
+                        statusContainer.innerHTML = `
+                            <div class="alert alert-success d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                                <span><strong>WhatsApp Conectado!</strong> Redirecionando para o chat...</span>
+                            </div>
+                        `;
+                    }
+                    
+                    // Fechar modal e abrir chat após 2 segundos
+                    setTimeout(() => {
+                        bootstrap.Modal.getInstance(document.getElementById('qrModal')).hide();
+                        openWhatsAppChat(connectionId, true);
+                        loadConnections();
+                    }, 2000);
+                }
+            }
+        } catch (error) {
+            console.log('Erro ao verificar status:', error);
+        }
+    }, 5000); // Verificar a cada 5 segundos
+}
+
+function stopStatusMonitoring() {
+    if (statusMonitoringTimer) {
+        clearInterval(statusMonitoringTimer);
+        statusMonitoringTimer = null;
+    }
+}
+
+// Função para abrir o chat do WhatsApp
+function openWhatsAppChat(connectionId, isAutoRedirect = false) {
+    const chatUrl = `/whatsapp/chat?connection_id=${connectionId}`;
+    
+    if (isAutoRedirect) {
+        // Redirecionamento automático - mostrar mensagem de sucesso
+        showAlert('WhatsApp conectado com sucesso! Abrindo interface de chat...', 'success');
+        
+        // Tentar abrir em nova janela, se falhar, redirecionar na mesma janela
+        const chatWindow = window.open(
+            chatUrl, 
+            `whatsapp_chat_${connectionId}`,
+            'width=1400,height=900,scrollbars=yes,resizable=yes,status=yes,toolbar=no,menubar=no,location=no'
+        );
+        
+        if (chatWindow) {
+            chatWindow.focus();
+            showAlert('Interface de chat aberta em nova janela! Você pode continuar usando esta tela para gerenciar conexões.', 'info');
+        } else {
+            // Fallback: redirecionar na mesma janela após 2 segundos
+            showAlert('Por favor, permita pop-ups para uma melhor experiência. Redirecionando...', 'warning');
+            setTimeout(() => {
+                window.location.href = chatUrl;
+            }, 2000);
+        }
+    } else {
+        // Abertura manual do chat
+        const chatWindow = window.open(
+            chatUrl, 
+            `whatsapp_chat_${connectionId}`,
+            'width=1400,height=900,scrollbars=yes,resizable=yes,status=yes,toolbar=no,menubar=no,location=no'
+        );
+        
+        if (chatWindow) {
+            chatWindow.focus();
+            showAlert('Interface de chat aberta!', 'success');
+        } else {
+            showAlert('Por favor, permita pop-ups ou clique no link abaixo', 'warning');
+            // Oferecer link direto
+            setTimeout(() => {
+                showAlert(`<a href="${chatUrl}" target="_blank" class="btn btn-success btn-sm">Clique aqui para abrir o chat</a>`, 'info');
+            }, 1000);
+        }
+    }
+}
+
 // Verificar status da conexão em tempo real
 async function checkConnectionStatus() {
     if (!currentConnectionId) return;
@@ -625,6 +728,7 @@ async function checkConnectionStatus() {
 // Limpar timers quando modal for fechado
 document.getElementById('qrModal').addEventListener('hidden.bs.modal', function () {
     stopQRRefreshTimer();
+    stopStatusMonitoring();
     currentConnectionId = null;
 });
 
@@ -769,6 +873,7 @@ renderConnections = function() {
 // Limpar timers quando modal for fechado
 document.getElementById('qrModal').addEventListener('hidden.bs.modal', function () {
     stopQRRefreshTimer();
+    stopStatusMonitoring();
     currentConnectionId = null;
 });
 
